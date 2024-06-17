@@ -69,9 +69,10 @@ public class AmnexSmsProvider {
     }
 
     public boolean send(String mobileNumber, String otpKey, String otpExpiry, String smsType) {
+        boolean retVal = false;
         if (!isConfigured) {
             logger.error("SMS is not configured properly. Failed to send SMS");
-            return false;
+            return retVal;
         }
 
         Map<String, String> messageTypeConfig = messageTypeMap.get(smsType);
@@ -136,6 +137,7 @@ public class AmnexSmsProvider {
                         int responseCode = response.getStatusLine().getStatusCode();
                         logger.info("POST Response Code: " + responseCode + ", response body: " + response.getEntity());
                         if (responseCode == 200) {
+                            retVal = true;
                             logger.info("POST request successful.");
                         } else {
                             logger.info("POST request failed.");
@@ -152,7 +154,7 @@ public class AmnexSmsProvider {
         } catch (Exception e) {
             logger.error(e);
         }
-        return false;
+        return retVal;
     }
 
     private String removePlusFromMobileNumber(String mobileNumber) {
