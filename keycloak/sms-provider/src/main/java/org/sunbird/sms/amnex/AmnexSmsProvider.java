@@ -127,6 +127,7 @@ public class AmnexSmsProvider {
 
                 Gson gson = new Gson();
                 String jsonInputString = gson.toJson(jsonInput);
+                long startTime = System.currentTimeMillis();
 
                 try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
                     HttpPost post = new HttpPost(urlStr);
@@ -135,24 +136,24 @@ public class AmnexSmsProvider {
 
                     try (CloseableHttpResponse response = httpClient.execute(post)) {
                         int responseCode = response.getStatusLine().getStatusCode();
-                        logger.info("POST Response Code: " + responseCode + ", response body: " + response.getEntity());
+                        logger.info(String.format("SMS Sent. ResponseCode: %s, Response Body: %s, TimeTaken: %s",
+                                responseCode, response.getEntity(), (System.currentTimeMillis() - startTime)));
                         if (responseCode == 200) {
                             retVal = true;
-                            logger.info("POST request successful.");
-                        } else {
-                            logger.info("POST request failed.");
                         }
                     } catch (Exception e) {
-                        logger.error("Failed to send SMS to mobile: " + mobileNumber + ", Exception: ", e);
+                        logger.error(String.format("Failed to send SMS to mobile: %s, TimeTaken: %s, Exception: %s",
+                                mobileNumber, (System.currentTimeMillis() - startTime), e.getMessage()), e);
                     }
                 } catch (Exception e) {
-                    logger.error("Failed to create httpClient. Exception: ", e);
+                    logger.error(String.format("Failed to create httpClient. TimeTaken: %s, Exception: %s",
+                            (System.currentTimeMillis() - startTime), e.getMessage()), e);
                 }
             } else {
                 logger.error("AmnexSmsProvider - Some mandatory parameters are empty!");
             }
         } catch (Exception e) {
-            logger.error(e);
+            logger.error("AmnexSmsProvider::send Failed to send SMS.", e);
         }
         return retVal;
     }
