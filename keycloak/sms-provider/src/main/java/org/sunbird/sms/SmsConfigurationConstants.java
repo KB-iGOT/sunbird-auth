@@ -33,4 +33,8 @@ public final class SmsConfigurationConstants {
     public static final String NIC_OTP_MESSAGE_TYPES = "messageTypes";
     public static final String NIC_LOGIN_OTP_SMS_TYPE = "loginOtp";
     public static final String NIC_FORGOT_PASSWORD_OTP_SMS_TYPE = "forgotPasswordOtp";
+
+    public static final String AMNEX_SMS_CAMPAIGN_NAME = "campaign_name";
+    public static final String AMNEX_SMS_RECIVERS = "receivers";
+    public static final String AMNEX_SMS_TEMPLATE_ID = "Template_ID";
 }

@@ -40,6 +40,7 @@ import org.sunbird.keycloak.utils.Constants;
 import org.sunbird.keycloak.utils.HttpClient;
 import org.sunbird.keycloak.utils.SunbirdModelUtils;
 import org.sunbird.sms.SmsConfigurationConstants;
+import org.sunbird.sms.amnex.AmnexSmsProvider;
 import org.sunbird.sms.nic.NicSmsProvider;
 
 import com.amazonaws.util.CollectionUtils;
@@ -270,6 +271,10 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 				long ttl = KeycloakSmsAuthenticatorUtil.getConfigLong(context.getAuthenticatorConfig(),
 						KeycloakSmsAuthenticatorConstants.CONF_PRP_SMS_CODE_TTL, 5 * 60L);
 				retValue = sendSmsViaNIC(mobileNumber, otp, String.valueOf(ttl / 60));
+			} else if(Constants.AMNEX_SMS_PROVIDER.equalsIgnoreCase(smsProvider)) {
+				long ttl = KeycloakSmsAuthenticatorUtil.getConfigLong(context.getAuthenticatorConfig(),
+						KeycloakSmsAuthenticatorConstants.CONF_PRP_SMS_CODE_TTL, 5 * 60L);
+				retValue = sendSmsViaAmnex(mobileNumber, otp, String.valueOf(ttl / 60));
 			} else {
 				logger.error(String.format(
 						"SMS Provider is not configured property. current value: %s. Execpected value: NIC / MSG91",
@@ -482,5 +487,11 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 					KeycloakSmsAuthenticatorConstants.USR_CRED_MDL_SMS_EXP_TIME);
 		}
 		return result;
+	}
+
+	private boolean sendSmsViaAmnex(String mobileNumber, String otp, String expiryTime) {
+		boolean retValue = AmnexSmsProvider.getInstance().send(mobileNumber, otp, expiryTime,
+				SmsConfigurationConstants.NIC_LOGIN_OTP_SMS_TYPE);
+		return retValue;
 	}
 }
