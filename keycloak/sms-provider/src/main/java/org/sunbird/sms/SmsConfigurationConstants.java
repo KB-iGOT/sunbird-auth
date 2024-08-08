@@ -37,4 +37,6 @@ public final class SmsConfigurationConstants {
     public static final String AMNEX_SMS_CAMPAIGN_NAME = "campaign_name";
     public static final String AMNEX_SMS_RECIVERS = "receivers";
     public static final String AMNEX_SMS_TEMPLATE_ID = "Template_ID";
+
+    public static final String NETCORE_SMS_FEEDID = "feedid";
 }
