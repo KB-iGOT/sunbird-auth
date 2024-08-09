@@ -98,4 +98,10 @@ public class Constants {
 	public static final String NAME = "name";
 	public static final String UTF_8 = "UTF-8";
 	public static final String AMNEX_SMS_PROVIDER = "AMNEX";
+	public static final String NETCORE_SMS_PROVIDER = "NetCore";
+	public static final String TO = "to";
+	public static final String TEXT = "text";
+	public static final String TEMPLATE_ID = "templateid";
+	public static final String SHORT = "short";
+	public static final String ASYNC = "async";
 }
