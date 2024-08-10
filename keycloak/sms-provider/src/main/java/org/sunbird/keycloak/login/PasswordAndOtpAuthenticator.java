@@ -4,11 +4,14 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.security.SecureRandom;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -22,6 +25,7 @@ import org.jboss.logging.Logger;
 import org.keycloak.authentication.AuthenticationFlowContext;
 import org.keycloak.authentication.AuthenticationFlowError;
 import org.keycloak.authentication.authenticators.browser.AbstractUsernameFormAuthenticator;
+import org.keycloak.credential.CredentialInput;
 import org.keycloak.credential.CredentialModel;
 import org.keycloak.events.Details;
 import org.keycloak.events.Errors;
@@ -32,7 +36,10 @@ import org.keycloak.models.ModelDuplicateException;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserCredentialModel;
 import org.keycloak.models.UserModel;
+import org.keycloak.models.utils.KeycloakModelUtils;
+import org.keycloak.representations.idm.CredentialRepresentation;
 import org.keycloak.services.ServicesLogger;
+import org.keycloak.services.managers.AuthenticationManager;
 import org.keycloak.services.messages.Messages;
 import org.sunbird.keycloak.resetcredential.sms.KeycloakSmsAuthenticatorConstants;
 import org.sunbird.keycloak.resetcredential.sms.KeycloakSmsAuthenticatorUtil;
@@ -49,6 +56,7 @@ import com.amazonaws.util.CollectionUtils;
 public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticator {
 
 	Logger logger = Logger.getLogger(PasswordAndOtpAuthenticator.class);
+	private static final SecureRandom random = new SecureRandom();
 
 	private enum CODE_STATUS {
 		VALID, INVALID, EXPIRED
@@ -61,7 +69,12 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 	@Override
 	public void authenticate(AuthenticationFlowContext context) {
 		String flagPage = getValue(context, Constants.FLAG_PAGE);
-		logger.info("OtpSmsFormAuthenticator::authenticate:: " + flagPage);
+		String secretKey = generateSecretKey();
+
+        // Send the secret key to the FTL page
+        context.getAuthenticationSession().setAuthNote("secretKey", secretKey);
+
+		logger.info("OtpSmsFormAuthenticator::authenticate:: " + flagPage + ", generated secretKey: " + secretKey);
 		goPage(context, Constants.LOGIN_PAGE);
 	}
 
@@ -506,4 +519,98 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 				SmsConfigurationConstants.NIC_LOGIN_OTP_SMS_TYPE);
 		return retValue;
 	}
+
+	private String generateSecretKey() {
+        // Convert current time to a formatted string (e.g., YYYYMMDDHHMMSS)
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
+        String timeComponent = dateFormat.format(new Date(System.currentTimeMillis()));
+
+        // Generate a random number between 0 and 9999
+        int randomComponent = random.nextInt(10000);
+
+        // Combine the time component and the random component
+        String secretKey = timeComponent + String.format("%04d", randomComponent);
+
+        // Truncate or pad the secret key to ensure it's exactly 16 digits
+        return secretKey.length() > 16 ? secretKey.substring(0, 16) : secretKey;
+    }
+
+	public boolean validateUserAndPassword(AuthenticationFlowContext context, MultivaluedMap<String, String> inputData) {
+        String username = inputData.getFirst(AuthenticationManager.FORM_USERNAME);
+        if (username == null) {
+            context.getEvent().error(Errors.USER_NOT_FOUND);
+            Response challengeResponse = challenge(context, Messages.INVALID_USER);
+            context.failureChallenge(AuthenticationFlowError.INVALID_USER, challengeResponse);
+            return false;
+        }
+
+        // remove leading and trailing whitespace
+        username = username.trim();
+
+        context.getEvent().detail(Details.USERNAME, username);
+        context.getAuthenticationSession().setAuthNote(AbstractUsernameFormAuthenticator.ATTEMPTED_USERNAME, username);
+
+        UserModel user = null;
+        try {
+            user = KeycloakModelUtils.findUserByNameOrEmail(context.getSession(), context.getRealm(), username);
+        } catch (ModelDuplicateException mde) {
+            ServicesLogger.LOGGER.modelDuplicateException(mde);
+
+            // Could happen during federation import
+            if (mde.getDuplicateFieldName() != null && mde.getDuplicateFieldName().equals(UserModel.EMAIL)) {
+                setDuplicateUserChallenge(context, Errors.EMAIL_IN_USE, Messages.EMAIL_EXISTS, AuthenticationFlowError.INVALID_USER);
+            } else {
+                setDuplicateUserChallenge(context, Errors.USERNAME_IN_USE, Messages.USERNAME_EXISTS, AuthenticationFlowError.INVALID_USER);
+            }
+
+            return false;
+        }
+
+        if (invalidUser(context, user)) {
+            return false;
+        }
+
+        if (!validatePassword(context, user, inputData)) {
+            return false;
+        }
+
+        if (!enabledUser(context, user)) {
+            return false;
+        }
+
+        String rememberMe = inputData.getFirst("rememberMe");
+        boolean remember = rememberMe != null && rememberMe.equalsIgnoreCase("on");
+        if (remember) {
+            context.getAuthenticationSession().setAuthNote(Details.REMEMBER_ME, "true");
+            context.getEvent().detail(Details.REMEMBER_ME, "true");
+        } else {
+            context.getAuthenticationSession().removeAuthNote(Details.REMEMBER_ME);
+        }
+        context.setUser(user);
+        return true;
+    }
+
+	public boolean validatePassword(AuthenticationFlowContext context, UserModel user, MultivaluedMap<String, String> inputData) {
+        List<CredentialInput> credentials = new LinkedList<>();
+        String password = inputData.getFirst(CredentialRepresentation.PASSWORD);
+        credentials.add(UserCredentialModel.password(password));
+
+        if (isTemporarilyDisabledByBruteForce(context, user)) {
+			logger.info("PasswordAndOtpAuthenticator::validatePassword:: user temporarily disabled due to brute force");
+			return false;
+		}
+		logger.info("PasswordAndOtpAuthenticator::validatePassword:: actualUserPassword :: " + user.getFirstAttribute("password"));
+		logger.info("PasswordAndOtpAuthenticator::validatePassword:: receivedPasssword:: " + password);
+
+        if (password != null && !password.isEmpty() && context.getSession().userCredentialManager().isValid(context.getRealm(), user, credentials)) {
+            return true;
+        } else {
+            context.getEvent().user(user);
+            context.getEvent().error(Errors.INVALID_USER_CREDENTIALS);
+            Response challengeResponse = challenge(context, Messages.INVALID_USER);
+            context.failureChallenge(AuthenticationFlowError.INVALID_CREDENTIALS, challengeResponse);
+            context.clearUser();
+            return false;
+        }
+    }
 }
