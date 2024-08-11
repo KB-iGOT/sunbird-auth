@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import javax.crypto.Cipher;
+import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
@@ -627,17 +628,19 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
     }
 
 	private String decryptPassword(String encryptedPassword, String secretKey) {
-        try {
-            SecretKeySpec keySpec = new SecretKeySpec(secretKey.getBytes(), "AES");
-            Cipher cipher = Cipher.getInstance("AES");
-            cipher.init(Cipher.DECRYPT_MODE, keySpec);
+		try {
+			byte[] decodedBytes = Base64.getDecoder().decode(encryptedPassword);
 
-            byte[] decodedValue = Base64.getDecoder().decode(encryptedPassword);
-            byte[] decryptedValue = cipher.doFinal(decodedValue);
+			Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+			SecretKeySpec keySpec = new SecretKeySpec(secretKey.getBytes("UTF-8"), "AES");
+			IvParameterSpec ivSpec = new IvParameterSpec(new byte[16]); // AES requires a 16-byte IV
+			cipher.init(Cipher.DECRYPT_MODE, keySpec, ivSpec);
 
-            return new String(decryptedValue);
-        } catch (Exception e) {
-            throw new RuntimeException("Error while decrypting password", e);
-        }
-    }
+			byte[] decryptedBytes = cipher.doFinal(decodedBytes);
+			return new String(decryptedBytes, "UTF-8");
+		} catch (Exception e) {
+			logger.error("PasswordAndOtpAuthenticator:: Exception while decrypting password. Exception: ", e);
+			throw new RuntimeException("Error while decrypting password", e);
+		}		
+	}
 }
