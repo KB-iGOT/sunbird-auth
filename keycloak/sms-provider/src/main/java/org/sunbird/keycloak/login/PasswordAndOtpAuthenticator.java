@@ -8,6 +8,7 @@ import java.security.SecureRandom;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -16,6 +17,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import javax.crypto.Cipher;
+import javax.crypto.spec.SecretKeySpec;
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
 
@@ -73,9 +76,10 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 
         // Send the secret key to the FTL page
         context.getAuthenticationSession().setAuthNote("secretKey", secretKey);
-
 		logger.info("OtpSmsFormAuthenticator::authenticate:: " + flagPage + ", generated secretKey: " + secretKey);
-		goPage(context, Constants.LOGIN_PAGE);
+		LoginFormsProvider formsProvider = context.form();
+		formsProvider.setAttribute("secretKey", secretKey);
+		context.challenge(formsProvider.createForm(Constants.LOGIN_PAGE));
 	}
 
 	@Override
@@ -591,6 +595,12 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
     }
 
 	public boolean validatePassword(AuthenticationFlowContext context, UserModel user, MultivaluedMap<String, String> inputData) {
+		String encryptedPassword = inputData.getFirst(CredentialRepresentation.PASSWORD);
+        String secretKey = context.getAuthenticationSession().getAuthNote("secretKey");
+
+        // Decrypt the password
+        String decryptedPassword = decryptPassword(encryptedPassword, secretKey);
+
         List<CredentialInput> credentials = new LinkedList<>();
         String password = inputData.getFirst(CredentialRepresentation.PASSWORD);
         credentials.add(UserCredentialModel.password(password));
@@ -600,7 +610,9 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 			return false;
 		}
 		logger.info("PasswordAndOtpAuthenticator::validatePassword:: actualUserPassword :: " + user.getFirstAttribute("password"));
-		logger.info("PasswordAndOtpAuthenticator::validatePassword:: receivedPasssword:: " + password);
+		logger.info(String.format(
+				"PasswordAndOtpAuthenticator::validatePassword:: secretKey:: %s, receivedPasssword:: %s, decryptedPassword:: %s",
+				secretKey, password, decryptedPassword));
 
         if (password != null && !password.isEmpty() && context.getSession().userCredentialManager().isValid(context.getRealm(), user, credentials)) {
             return true;
@@ -611,6 +623,21 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
             context.failureChallenge(AuthenticationFlowError.INVALID_CREDENTIALS, challengeResponse);
             context.clearUser();
             return false;
+        }
+    }
+
+	private String decryptPassword(String encryptedPassword, String secretKey) {
+        try {
+            SecretKeySpec keySpec = new SecretKeySpec(secretKey.getBytes(), "AES");
+            Cipher cipher = Cipher.getInstance("AES");
+            cipher.init(Cipher.DECRYPT_MODE, keySpec);
+
+            byte[] decodedValue = Base64.getDecoder().decode(encryptedPassword);
+            byte[] decryptedValue = cipher.doFinal(decodedValue);
+
+            return new String(decryptedValue);
+        } catch (Exception e) {
+            throw new RuntimeException("Error while decrypting password", e);
         }
     }
 }
