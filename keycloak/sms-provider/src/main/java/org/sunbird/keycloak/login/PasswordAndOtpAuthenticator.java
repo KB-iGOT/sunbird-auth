@@ -74,8 +74,14 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 	public void authenticate(AuthenticationFlowContext context) {
 		String flagPage = getValue(context, Constants.FLAG_PAGE);
 		logger.info("OtpSmsFormAuthenticator::authenticate:: " + flagPage);
+		// Generate the secret key
+		String secretKey = generateSecretKey();
+
+		// Store the secret key as an authentication session note
+		context.getAuthenticationSession().setAuthNote(Constants.SECRET_KEY, secretKey);
+	
 		LoginFormsProvider formsProvider = context.form();
-		formsProvider.setAttribute(Constants.SECRECT_KEY, generateSecretKey());
+		formsProvider.setAttribute(Constants.SECRET_KEY, secretKey);
 		context.challenge(formsProvider.createForm(Constants.LOGIN_PAGE));
 	}
 
@@ -159,8 +165,13 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 	}
 
 	private void goErrorPage(AuthenticationFlowContext context, String message) {
+		// Generate the secret key
+		String secretKey = generateSecretKey();
+
+		// Store the secret key as an authentication session note
+		context.getAuthenticationSession().setAuthNote(Constants.SECRET_KEY, secretKey);
 		LoginFormsProvider formsProvider = context.form();
-		formsProvider.setAttribute(Constants.SECRECT_KEY, generateSecretKey());
+		formsProvider.setAttribute(Constants.SECRET_KEY, secretKey);
 		Response challenge = formsProvider.setError(message).createForm(Constants.LOGIN_PAGE);
 		context.failureChallenge(AuthenticationFlowError.INTERNAL_ERROR, challenge);
 	}
@@ -595,7 +606,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 
 	public boolean validatePassword(AuthenticationFlowContext context, UserModel user, MultivaluedMap<String, String> inputData) {
 		String encryptedPassword = inputData.getFirst(CredentialRepresentation.PASSWORD);
-        String secretKey = context.getAuthenticationSession().getAuthNote(Constants.SECRECT_KEY);
+        String secretKey = context.getAuthenticationSession().getAuthNote(Constants.SECRET_KEY);
 		String iv = inputData.getFirst(Constants.IV);
         // Decrypt the password
         String decryptedPassword = decryptPassword(encryptedPassword, secretKey, iv);
