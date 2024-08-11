@@ -631,9 +631,11 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		try {
 			byte[] decodedBytes = Base64.getDecoder().decode(encryptedPassword);
 
+			// Use the same IV that was used during encryption
+			IvParameterSpec ivSpec = new IvParameterSpec("0000000000000000".getBytes("UTF-8"));
+
 			Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
 			SecretKeySpec keySpec = new SecretKeySpec(secretKey.getBytes("UTF-8"), "AES");
-			IvParameterSpec ivSpec = new IvParameterSpec(new byte[16]); // AES requires a 16-byte IV
 			cipher.init(Cipher.DECRYPT_MODE, keySpec, ivSpec);
 
 			byte[] decryptedBytes = cipher.doFinal(decodedBytes);
@@ -641,6 +643,6 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		} catch (Exception e) {
 			logger.error("PasswordAndOtpAuthenticator:: Exception while decrypting password. Exception: ", e);
 			throw new RuntimeException("Error while decrypting password", e);
-		}		
+		}
 	}
 }
