@@ -604,7 +604,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 
         List<CredentialInput> credentials = new LinkedList<>();
         String password = inputData.getFirst(CredentialRepresentation.PASSWORD);
-        credentials.add(UserCredentialModel.password(password));
+        credentials.add(UserCredentialModel.password(decryptedPassword));
 
         if (isTemporarilyDisabledByBruteForce(context, user)) {
 			logger.info("PasswordAndOtpAuthenticator::validatePassword:: user temporarily disabled due to brute force");
@@ -615,7 +615,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 				"PasswordAndOtpAuthenticator::validatePassword:: secretKey:: %s, receivedPasssword:: %s, decryptedPassword:: %s",
 				secretKey, password, decryptedPassword));
 
-        if (password != null && !password.isEmpty() && context.getSession().userCredentialManager().isValid(context.getRealm(), user, credentials)) {
+        if (decryptedPassword != null && !decryptedPassword.isEmpty() && context.getSession().userCredentialManager().isValid(context.getRealm(), user, credentials)) {
             return true;
         } else {
             context.getEvent().user(user);
