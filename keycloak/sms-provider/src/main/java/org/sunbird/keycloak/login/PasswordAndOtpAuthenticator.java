@@ -73,13 +73,9 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 	@Override
 	public void authenticate(AuthenticationFlowContext context) {
 		String flagPage = getValue(context, Constants.FLAG_PAGE);
-		String secretKey = generateSecretKey();
-
-        // Send the secret key to the FTL page
-        context.getAuthenticationSession().setAuthNote("secretKey", secretKey);
-		logger.info("OtpSmsFormAuthenticator::authenticate:: " + flagPage + ", generated secretKey: " + secretKey);
+		logger.info("OtpSmsFormAuthenticator::authenticate:: " + flagPage);
 		LoginFormsProvider formsProvider = context.form();
-		formsProvider.setAttribute("secretKey", secretKey);
+		formsProvider.setAttribute(Constants.SECRECT_KEY, generateSecretKey());
 		context.challenge(formsProvider.createForm(Constants.LOGIN_PAGE));
 	}
 
@@ -163,7 +159,9 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 	}
 
 	private void goErrorPage(AuthenticationFlowContext context, String message) {
-		Response challenge = context.form().setError(message).createForm(Constants.LOGIN_PAGE);
+		LoginFormsProvider formsProvider = context.form();
+		formsProvider.setAttribute(Constants.SECRECT_KEY, generateSecretKey());
+		Response challenge = formsProvider.setError(message).createForm(Constants.LOGIN_PAGE);
 		context.failureChallenge(AuthenticationFlowError.INTERNAL_ERROR, challenge);
 	}
 
@@ -597,10 +595,10 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 
 	public boolean validatePassword(AuthenticationFlowContext context, UserModel user, MultivaluedMap<String, String> inputData) {
 		String encryptedPassword = inputData.getFirst(CredentialRepresentation.PASSWORD);
-        String secretKey = context.getAuthenticationSession().getAuthNote("secretKey");
-
+        String secretKey = context.getAuthenticationSession().getAuthNote(Constants.SECRECT_KEY);
+		String iv = inputData.getFirst(Constants.IV);
         // Decrypt the password
-        String decryptedPassword = decryptPassword(encryptedPassword, secretKey);
+        String decryptedPassword = decryptPassword(encryptedPassword, secretKey, iv);
 
         List<CredentialInput> credentials = new LinkedList<>();
         String password = inputData.getFirst(CredentialRepresentation.PASSWORD);
@@ -627,12 +625,11 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
         }
     }
 
-	private String decryptPassword(String encryptedPassword, String secretKey) {
+	private String decryptPassword(String encryptedPassword, String secretKey, String iv) {
 		try {
 			byte[] decodedBytes = Base64.getDecoder().decode(encryptedPassword);
-
-			// Use the same IV that was used during encryption
-			IvParameterSpec ivSpec = new IvParameterSpec("0000000000000000".getBytes("UTF-8"));
+			byte[] ivBytes = Base64.getDecoder().decode(iv);
+			IvParameterSpec ivSpec = new IvParameterSpec(ivBytes); 
 
 			Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
 			SecretKeySpec keySpec = new SecretKeySpec(secretKey.getBytes("UTF-8"), "AES");
