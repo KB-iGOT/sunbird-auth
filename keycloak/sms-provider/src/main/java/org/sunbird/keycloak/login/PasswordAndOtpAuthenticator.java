@@ -77,6 +77,9 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		String flagPage = getValue(context, Constants.FLAG_PAGE);
 		logger.info("OtpSmsFormAuthenticator::authenticate:: " + flagPage + ", keyValue: " + secretKey);
 		
+		String sessionCode = context.getAuthenticationSession().getAuthNote("session_code");
+		logger.info("sessionCode ? " + sessionCode == null ? "null" : sessionCode);
+
 		// Store the secret key as an authentication session note
 		context.getAuthenticationSession().setAuthNote(Constants.SECRET_KEY, secretKey);
 	
@@ -609,6 +612,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 	public boolean validatePassword(AuthenticationFlowContext context, UserModel user, MultivaluedMap<String, String> inputData) {
 		String encryptedPassword = inputData.getFirst(CredentialRepresentation.PASSWORD);
         String secretKey = context.getAuthenticationSession().getAuthNote(Constants.SECRET_KEY);
+		logger.info("SecretKey from AuthSession: " + secretKey);
 		String iv = inputData.getFirst(Constants.IV);
         // Decrypt the password
         String decryptedPassword = decryptPassword(encryptedPassword, secretKey, iv);
