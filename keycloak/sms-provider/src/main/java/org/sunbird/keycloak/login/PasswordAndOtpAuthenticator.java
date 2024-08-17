@@ -109,12 +109,11 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 	 */
 	@Override
 	public void action(AuthenticationFlowContext context) {
-		logger.info("OtpSmsFormAuthenticator::action... ");
 		MultivaluedMap<String, String> qParamMap = context.getHttpRequest().getUri().getQueryParameters(false);
 		Iterator<Entry<String, List<String>>> itr = qParamMap.entrySet().iterator();
 		while (itr.hasNext()) {
 			Entry<String, List<String>> entry = itr.next();
-			logger.info(String.format("		query: key: %s, value: %s", entry.getKey(), entry.getValue()));
+			logger.debug(String.format("		query: key: %s, value: %s", entry.getKey(), entry.getValue()));
 		}
 
 		String flagPage = getValue(context, Constants.FLAG_PAGE);
