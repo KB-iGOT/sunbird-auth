@@ -72,11 +72,11 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 	 */
 	@Override
 	public void authenticate(AuthenticationFlowContext context) {
-		String flagPage = getValue(context, Constants.FLAG_PAGE);
-		logger.info("OtpSmsFormAuthenticator::authenticate:: " + flagPage);
 		// Generate the secret key
 		String secretKey = generateSecretKey();
-
+		String flagPage = getValue(context, Constants.FLAG_PAGE);
+		logger.info("OtpSmsFormAuthenticator::authenticate:: " + flagPage + ", keyValue: " + secretKey);
+		
 		// Store the secret key as an authentication session note
 		context.getAuthenticationSession().setAuthNote(Constants.SECRET_KEY, secretKey);
 	
@@ -167,6 +167,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 	private void goErrorPage(AuthenticationFlowContext context, String message) {
 		// Generate the secret key
 		String secretKey = generateSecretKey();
+		logger.info("OtpSmsFormAuthenticator::goErrorPage: message: " + message + ", keyValue: " + secretKey);
 
 		// Store the secret key as an authentication session note
 		context.getAuthenticationSession().setAuthNote(Constants.SECRET_KEY, secretKey);
@@ -177,6 +178,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 	}
 
 	private void goErrorPage(AuthenticationFlowContext context, String page, String message) {
+		logger.info("OtpSmsFormAuthenticator::goErrorPage: message: " + message + ", page: " + page);
 		Response challenge = context.form().setError(message).createForm(page);
 		context.failureChallenge(AuthenticationFlowError.INVALID_CREDENTIALS, challenge);
 	}
