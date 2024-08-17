@@ -188,8 +188,16 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		context.getAuthenticationSession().setAuthNote(Constants.SECRET_KEY, secretKey);
 		LoginFormsProvider formsProvider = context.form();
 		formsProvider.setAttribute(Constants.SECRET_KEY, secretKey);
-		Response challenge = formsProvider.setError(message).createForm(Constants.LOGIN_PAGE);
-		context.failureChallenge(AuthenticationFlowError.INTERNAL_ERROR, challenge);
+
+		if(message.contains("Invalid credentials")) {
+			context.getEvent().error(Errors.INVALID_USER_CREDENTIALS);
+			Response challengeResponse = formsProvider.setError(Errors.INVALID_USER_CREDENTIALS).createForm(Constants.LOGIN_PAGE);
+			context.failureChallenge(AuthenticationFlowError.INVALID_CREDENTIALS, challengeResponse);
+			context.clearUser();
+		} else {
+			Response challenge = formsProvider.setError(message).createForm(Constants.LOGIN_PAGE);
+			context.failureChallenge(AuthenticationFlowError.INTERNAL_ERROR, challenge);
+		}
 	}
 
 	private void goErrorPage(AuthenticationFlowContext context, String page, String message) {
@@ -651,11 +659,13 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 				&& context.getSession().userCredentialManager().isValid(context.getRealm(), user, credentials)) {
 			return true;
 		} else {
+			/*
 			context.getEvent().user(user);
 			context.getEvent().error(Errors.INVALID_USER_CREDENTIALS);
 			Response challengeResponse = challenge(context, Messages.INVALID_USER);
 			context.failureChallenge(AuthenticationFlowError.INVALID_CREDENTIALS, challengeResponse);
 			context.clearUser();
+			 */
 			return false;
 		}
 	}
