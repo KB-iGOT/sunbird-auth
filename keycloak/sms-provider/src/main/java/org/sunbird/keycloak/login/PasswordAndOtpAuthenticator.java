@@ -72,8 +72,12 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 	 */
 	@Override
 	public void authenticate(AuthenticationFlowContext context) {
-		// Generate the secret key
-		String secretKey = generateSecretKey();
+		String secretKey = context.getAuthenticationSession().getAuthNote(Constants.SECRET_KEY);
+		if (StringUtils.isBlank(secretKey)) {
+			// Generate the secret key
+			secretKey = generateSecretKey();
+			logger.info("Generated new secret key.");
+		}
 		String flagPage = getValue(context, Constants.FLAG_PAGE);
 		logger.info("OtpSmsFormAuthenticator::authenticate:: " + flagPage + ", keyValue: " + secretKey);
 		
@@ -180,8 +184,13 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 	}
 
 	private void goErrorPage(AuthenticationFlowContext context, String message) {
-		// Generate the secret key
-		String secretKey = generateSecretKey();
+		String secretKey = context.getAuthenticationSession().getAuthNote(Constants.SECRET_KEY);
+		if (StringUtils.isBlank(secretKey)) {
+			// Generate the secret key
+			secretKey = generateSecretKey();
+			logger.info("Generated new secret key.");
+		}
+		
 		logger.info("OtpSmsFormAuthenticator::goErrorPage: message: " + message + ", keyValue: " + secretKey);
 
 		// Store the secret key as an authentication session note
