@@ -72,11 +72,15 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 	 */
 	@Override
 	public void authenticate(AuthenticationFlowContext context) {
+		String secretKey = context.getAuthenticationSession().getAuthNote(Constants.SECRET_KEY);
+		if (StringUtils.isBlank(secretKey)) {
+			// Generate the secret key
+			secretKey = generateSecretKey();
+			logger.info("Generated new secret key.");
+		}
 		String flagPage = getValue(context, Constants.FLAG_PAGE);
-		logger.info("OtpSmsFormAuthenticator::authenticate:: " + flagPage);
-		// Generate the secret key
-		String secretKey = generateSecretKey();
-
+		logger.debug("OtpSmsFormAuthenticator::authenticate:: " + flagPage + ", keyValue: " + secretKey);
+		
 		// Store the secret key as an authentication session note
 		context.getAuthenticationSession().setAuthNote(Constants.SECRET_KEY, secretKey);
 	
@@ -105,40 +109,39 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 	 */
 	@Override
 	public void action(AuthenticationFlowContext context) {
-		logger.info("OtpSmsFormAuthenticator::action... ");
 		MultivaluedMap<String, String> qParamMap = context.getHttpRequest().getUri().getQueryParameters(false);
 		Iterator<Entry<String, List<String>>> itr = qParamMap.entrySet().iterator();
 		while (itr.hasNext()) {
 			Entry<String, List<String>> entry = itr.next();
-			logger.info(String.format("		query: key: %s, value: %s", entry.getKey(), entry.getValue()));
+			logger.debug(String.format("		query: key: %s, value: %s", entry.getKey(), entry.getValue()));
 		}
 
 		String flagPage = getValue(context, Constants.FLAG_PAGE);
 		logger.info("OtpSmsFormAuthenticator::action:: " + flagPage);
 		switch (flagPage) {
-		case Constants.FLAG_OTP_PAGE:
-			authenticateOtp(context);
-			break;
-		case Constants.FLAG_OTP_RESEND_PAGE:
-			resendOtp(context);
-			break;
-		case Constants.FLAG_LOGIN_PAGE:
-			sendOtp(context, qParamMap.getFirst(Constants.REDIRECT_URI_KEY));
-			break;
-		case Constants.FLAG_LOGIN_WITH_PASS:
-			if (!validateForm(context, context.getHttpRequest().getDecodedFormParameters())) {
-				goErrorPage(context, "Invalid credentials!");
-			} else {
-				logger.info("Validation of username + password is successful... setting redirect_uri with "
-						+ qParamMap.getFirst(Constants.REDIRECT_URI_KEY));
-				context.getAuthenticationSession().setAuthNote(Details.REDIRECT_URI,
-						qParamMap.getFirst(Constants.REDIRECT_URI_KEY));
-				context.success();
-			}
-			break;
-		default:
-			authenticate(context);
-			break;
+			case Constants.FLAG_OTP_PAGE:
+				authenticateOtp(context);
+				break;
+			case Constants.FLAG_OTP_RESEND_PAGE:
+				resendOtp(context);
+				break;
+			case Constants.FLAG_LOGIN_PAGE:
+				sendOtp(context, qParamMap.getFirst(Constants.REDIRECT_URI_KEY));
+				break;
+			case Constants.FLAG_LOGIN_WITH_PASS:
+				if (!validateForm(context, context.getHttpRequest().getDecodedFormParameters())) {
+					goErrorPage(context, "Invalid credentials!");
+				} else {
+					logger.info("Validation of username + password is successful... setting redirect_uri with "
+							+ qParamMap.getFirst(Constants.REDIRECT_URI_KEY));
+					context.getAuthenticationSession().setAuthNote(Details.REDIRECT_URI,
+							qParamMap.getFirst(Constants.REDIRECT_URI_KEY));
+					context.success();
+				}
+				break;
+			default:
+				authenticate(context);
+				break;
 		}
 	}
 
@@ -165,18 +168,55 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 	}
 
 	private void goErrorPage(AuthenticationFlowContext context, String message) {
-		// Generate the secret key
-		String secretKey = generateSecretKey();
+		String secretKey = context.getAuthenticationSession().getAuthNote(Constants.SECRET_KEY);
+		if (StringUtils.isBlank(secretKey)) {
+			// Generate the secret key
+			secretKey = generateSecretKey();
+			logger.info("Generated new secret key.");
+		}
+		
+		logger.debug("OtpSmsFormAuthenticator::goErrorPage: message: " + message + ", keyValue: " + secretKey);
 
 		// Store the secret key as an authentication session note
 		context.getAuthenticationSession().setAuthNote(Constants.SECRET_KEY, secretKey);
 		LoginFormsProvider formsProvider = context.form();
 		formsProvider.setAttribute(Constants.SECRET_KEY, secretKey);
-		Response challenge = formsProvider.setError(message).createForm(Constants.LOGIN_PAGE);
-		context.failureChallenge(AuthenticationFlowError.INTERNAL_ERROR, challenge);
+		String error = context.getEvent().getEvent().getError();
+		String errMsg = "Internal Server Error!";
+		switch (error) {
+			case Errors.INVALID_USER_CREDENTIALS:
+				errMsg = "Invalid credentials!";
+				Response invalidCredsRes = formsProvider.setError(errMsg).createForm(Constants.LOGIN_PAGE);
+				context.failureChallenge(AuthenticationFlowError.INVALID_CREDENTIALS, invalidCredsRes);
+				break;
+			case Errors.USER_NOT_FOUND:
+				errMsg = "Invalid user details.";
+				Response invalidUserRes = formsProvider.setError(errMsg).createForm(Constants.LOGIN_PAGE);
+				context.failureChallenge(AuthenticationFlowError.UNKNOWN_USER, invalidUserRes);
+				break;
+			case Errors.USER_DISABLED:
+				errMsg = "User account is disabled.";
+				Response userDisabledRes = formsProvider.setError(errMsg).createForm(Constants.LOGIN_PAGE);
+				context.failureChallenge(AuthenticationFlowError.USER_DISABLED, userDisabledRes);
+				break;
+			case Errors.USER_TEMPORARILY_DISABLED:
+				errMsg = "User account is disabled temporarily.";
+				Response tempDisabledRes = formsProvider.setError(errMsg).createForm(Constants.LOGIN_PAGE);
+				context.failureChallenge(AuthenticationFlowError.USER_TEMPORARILY_DISABLED, tempDisabledRes);
+				break;
+			case Errors.EMAIL_IN_USE:
+			case Errors.USERNAME_IN_USE:
+			default:
+				Response internalErrorRes = formsProvider.setError(errMsg).createForm(Constants.LOGIN_PAGE);
+				context.failureChallenge(AuthenticationFlowError.INTERNAL_ERROR, internalErrorRes);
+				break;
+		}
+		context.getEvent().error(errMsg);
+		context.clearUser();
 	}
 
 	private void goErrorPage(AuthenticationFlowContext context, String page, String message) {
+		logger.info("OtpSmsFormAuthenticator::goErrorPage: message: " + message + ", page: " + page);
 		Response challenge = context.form().setError(message).createForm(page);
 		context.failureChallenge(AuthenticationFlowError.INVALID_CREDENTIALS, challenge);
 	}
@@ -284,41 +324,41 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		boolean retValue = false;
 		String userNameType = isEmailOrMobileNumber(mobileNumber);
 		switch (userNameType) {
-		case Constants.PHONE:
-			AuthenticatorConfigModel configModel = context.getAuthenticatorConfig();
-			String smsProvider = null;
-			if (configModel.getConfig() != null) {
-				smsProvider = configModel.getConfig().get(KeycloakSmsAuthenticatorConstants.CONF_PRP_SMS_PROVIDER);
-			}
-			logger.info("SMS for OTP initiated with provider : " + smsProvider);
-			if (Constants.MSG91_PROVIDER.equalsIgnoreCase(smsProvider)) {
-				retValue = KeycloakSmsAuthenticatorUtil.send(mobileNumber, otp);
-			} else if (Constants.Free2SMS_PROVIDER.equalsIgnoreCase(smsProvider)) {
-				retValue = sendSmsViaFast2Sms(mobileNumber, otp);
-			} else if (Constants.NIC_PROVIDER.equalsIgnoreCase(smsProvider)) {
-				long ttl = KeycloakSmsAuthenticatorUtil.getConfigLong(context.getAuthenticatorConfig(),
-						KeycloakSmsAuthenticatorConstants.CONF_PRP_SMS_CODE_TTL, 5 * 60L);
-				retValue = sendSmsViaNIC(mobileNumber, otp, String.valueOf(ttl / 60));
-			} else if(Constants.AMNEX_SMS_PROVIDER.equalsIgnoreCase(smsProvider)) {
-				long ttl = KeycloakSmsAuthenticatorUtil.getConfigLong(context.getAuthenticatorConfig(),
-						KeycloakSmsAuthenticatorConstants.CONF_PRP_SMS_CODE_TTL, 5 * 60L);
-				retValue = sendSmsViaAmnex(mobileNumber, otp, String.valueOf(ttl / 60));
-			} else if (Constants.NETCORE_SMS_PROVIDER.equalsIgnoreCase(smsProvider)) {
-				long ttl = KeycloakSmsAuthenticatorUtil.getConfigLong(context.getAuthenticatorConfig(),
-						KeycloakSmsAuthenticatorConstants.CONF_PRP_SMS_CODE_TTL, 5 * 60L);
-				retValue = sendSmsViaNetCore(mobileNumber, otp, String.valueOf(ttl / 60));
-			} else {
-				logger.error(String.format(
-						"SMS Provider is not configured property. current value: %s. Execpected value: NIC / MSG91",
-						smsProvider));
-			}
-			break;
-		case Constants.EMAIL:
-			retValue = sendEmailViaSunbird(context, mobileNumber, otp);
-			break;
-		default:
-			logger.error("Failed to identify given key is email or mobile.");
-			break;
+			case Constants.PHONE:
+				AuthenticatorConfigModel configModel = context.getAuthenticatorConfig();
+				String smsProvider = null;
+				if (configModel.getConfig() != null) {
+					smsProvider = configModel.getConfig().get(KeycloakSmsAuthenticatorConstants.CONF_PRP_SMS_PROVIDER);
+				}
+				logger.info("SMS for OTP initiated with provider : " + smsProvider);
+				if (Constants.MSG91_PROVIDER.equalsIgnoreCase(smsProvider)) {
+					retValue = KeycloakSmsAuthenticatorUtil.send(mobileNumber, otp);
+				} else if (Constants.Free2SMS_PROVIDER.equalsIgnoreCase(smsProvider)) {
+					retValue = sendSmsViaFast2Sms(mobileNumber, otp);
+				} else if (Constants.NIC_PROVIDER.equalsIgnoreCase(smsProvider)) {
+					long ttl = KeycloakSmsAuthenticatorUtil.getConfigLong(context.getAuthenticatorConfig(),
+							KeycloakSmsAuthenticatorConstants.CONF_PRP_SMS_CODE_TTL, 5 * 60L);
+					retValue = sendSmsViaNIC(mobileNumber, otp, String.valueOf(ttl / 60));
+				} else if (Constants.AMNEX_SMS_PROVIDER.equalsIgnoreCase(smsProvider)) {
+					long ttl = KeycloakSmsAuthenticatorUtil.getConfigLong(context.getAuthenticatorConfig(),
+							KeycloakSmsAuthenticatorConstants.CONF_PRP_SMS_CODE_TTL, 5 * 60L);
+					retValue = sendSmsViaAmnex(mobileNumber, otp, String.valueOf(ttl / 60));
+				} else if (Constants.NETCORE_SMS_PROVIDER.equalsIgnoreCase(smsProvider)) {
+					long ttl = KeycloakSmsAuthenticatorUtil.getConfigLong(context.getAuthenticatorConfig(),
+							KeycloakSmsAuthenticatorConstants.CONF_PRP_SMS_CODE_TTL, 5 * 60L);
+					retValue = sendSmsViaNetCore(mobileNumber, otp, String.valueOf(ttl / 60));
+				} else {
+					logger.error(String.format(
+							"SMS Provider is not configured property. current value: %s. Execpected value: NIC / MSG91",
+							smsProvider));
+				}
+				break;
+			case Constants.EMAIL:
+				retValue = sendEmailViaSunbird(context, mobileNumber, otp);
+				break;
+			default:
+				logger.error("Failed to identify given key is email or mobile.");
+				break;
 		}
 		logger.info("Email/SMS for OTP send successfully ? " + retValue);
 		return retValue;
@@ -535,112 +575,114 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 	}
 
 	private String generateSecretKey() {
-        // Convert current time to a formatted string (e.g., YYYYMMDDHHMMSS)
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
-        String timeComponent = dateFormat.format(new Date(System.currentTimeMillis()));
+		// Convert current time to a formatted string (e.g., YYYYMMDDHHMMSS)
+		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
+		String timeComponent = dateFormat.format(new Date(System.currentTimeMillis()));
 
-        // Generate a random number between 0 and 9999
-        int randomComponent = random.nextInt(10000);
+		// Generate a random number between 0 and 9999
+		int randomComponent = random.nextInt(10000);
 
-        // Combine the time component and the random component
-        String secretKey = timeComponent + String.format("%04d", randomComponent);
+		// Combine the time component and the random component
+		String secretKey = timeComponent + String.format("%04d", randomComponent);
 
-        // Truncate or pad the secret key to ensure it's exactly 16 digits
-        return secretKey.length() > 16 ? secretKey.substring(0, 16) : secretKey;
-    }
+		// Truncate or pad the secret key to ensure it's exactly 16 digits
+		return secretKey.length() > 16 ? secretKey.substring(0, 16) : secretKey;
+	}
 
-	public boolean validateUserAndPassword(AuthenticationFlowContext context, MultivaluedMap<String, String> inputData) {
-        String username = inputData.getFirst(AuthenticationManager.FORM_USERNAME);
-        if (username == null) {
-            context.getEvent().error(Errors.USER_NOT_FOUND);
-            Response challengeResponse = challenge(context, Messages.INVALID_USER);
-            context.failureChallenge(AuthenticationFlowError.INVALID_USER, challengeResponse);
-            return false;
-        }
-
-        // remove leading and trailing whitespace
-        username = username.trim();
-
-        context.getEvent().detail(Details.USERNAME, username);
-        context.getAuthenticationSession().setAuthNote(AbstractUsernameFormAuthenticator.ATTEMPTED_USERNAME, username);
-
-        UserModel user = null;
-        try {
-            user = KeycloakModelUtils.findUserByNameOrEmail(context.getSession(), context.getRealm(), username);
-        } catch (ModelDuplicateException mde) {
-            ServicesLogger.LOGGER.modelDuplicateException(mde);
-
-            // Could happen during federation import
-            if (mde.getDuplicateFieldName() != null && mde.getDuplicateFieldName().equals(UserModel.EMAIL)) {
-                setDuplicateUserChallenge(context, Errors.EMAIL_IN_USE, Messages.EMAIL_EXISTS, AuthenticationFlowError.INVALID_USER);
-            } else {
-                setDuplicateUserChallenge(context, Errors.USERNAME_IN_USE, Messages.USERNAME_EXISTS, AuthenticationFlowError.INVALID_USER);
-            }
-
-            return false;
-        }
-
-        if (invalidUser(context, user)) {
-            return false;
-        }
-
-        if (!validatePassword(context, user, inputData)) {
-            return false;
-        }
-
-        if (!enabledUser(context, user)) {
-            return false;
-        }
-
-        String rememberMe = inputData.getFirst("rememberMe");
-        boolean remember = rememberMe != null && rememberMe.equalsIgnoreCase("on");
-        if (remember) {
-            context.getAuthenticationSession().setAuthNote(Details.REMEMBER_ME, "true");
-            context.getEvent().detail(Details.REMEMBER_ME, "true");
-        } else {
-            context.getAuthenticationSession().removeAuthNote(Details.REMEMBER_ME);
-        }
-        context.setUser(user);
-        return true;
-    }
-
-	public boolean validatePassword(AuthenticationFlowContext context, UserModel user, MultivaluedMap<String, String> inputData) {
-		String encryptedPassword = inputData.getFirst(CredentialRepresentation.PASSWORD);
-        String secretKey = context.getAuthenticationSession().getAuthNote(Constants.SECRET_KEY);
-		String iv = inputData.getFirst(Constants.IV);
-        // Decrypt the password
-        String decryptedPassword = decryptPassword(encryptedPassword, secretKey, iv);
-
-        List<CredentialInput> credentials = new LinkedList<>();
-        String password = inputData.getFirst(CredentialRepresentation.PASSWORD);
-        credentials.add(UserCredentialModel.password(decryptedPassword));
-
-        if (isTemporarilyDisabledByBruteForce(context, user)) {
-			logger.info("PasswordAndOtpAuthenticator::validatePassword:: user temporarily disabled due to brute force");
+	public boolean validateUserAndPassword(AuthenticationFlowContext context,
+			MultivaluedMap<String, String> inputData) {
+		String username = inputData.getFirst(AuthenticationManager.FORM_USERNAME);
+		if (username == null) {
+			context.getEvent().error(Errors.USER_NOT_FOUND);
+			Response challengeResponse = challenge(context, Messages.INVALID_USER);
+			context.failureChallenge(AuthenticationFlowError.INVALID_USER, challengeResponse);
 			return false;
 		}
-		logger.info("PasswordAndOtpAuthenticator::validatePassword:: actualUserPassword :: " + user.getFirstAttribute("password"));
-		logger.info(String.format(
-				"PasswordAndOtpAuthenticator::validatePassword:: secretKey:: %s, receivedPasssword:: %s, decryptedPassword:: %s",
-				secretKey, password, decryptedPassword));
 
-        if (decryptedPassword != null && !decryptedPassword.isEmpty() && context.getSession().userCredentialManager().isValid(context.getRealm(), user, credentials)) {
-            return true;
-        } else {
-            context.getEvent().user(user);
-            context.getEvent().error(Errors.INVALID_USER_CREDENTIALS);
-            Response challengeResponse = challenge(context, Messages.INVALID_USER);
-            context.failureChallenge(AuthenticationFlowError.INVALID_CREDENTIALS, challengeResponse);
-            context.clearUser();
-            return false;
-        }
-    }
+		// remove leading and trailing whitespace
+		username = username.trim();
+
+		context.getEvent().detail(Details.USERNAME, username);
+		context.getAuthenticationSession().setAuthNote(AbstractUsernameFormAuthenticator.ATTEMPTED_USERNAME, username);
+
+		UserModel user = null;
+		try {
+			user = KeycloakModelUtils.findUserByNameOrEmail(context.getSession(), context.getRealm(), username);
+		} catch (ModelDuplicateException mde) {
+			ServicesLogger.LOGGER.modelDuplicateException(mde);
+
+			// Could happen during federation import
+			if (mde.getDuplicateFieldName() != null && mde.getDuplicateFieldName().equals(UserModel.EMAIL)) {
+				context.getEvent().getEvent().setError(Errors.EMAIL_IN_USE);
+				//setDuplicateUserChallenge(context, Errors.EMAIL_IN_USE, Messages.EMAIL_EXISTS,
+				//		AuthenticationFlowError.INVALID_USER);
+			} else {
+				context.getEvent().getEvent().setError(Errors.USERNAME_IN_USE);
+				//setDuplicateUserChallenge(context, Errors.USERNAME_IN_USE, Messages.USERNAME_EXISTS,
+				//		AuthenticationFlowError.INVALID_USER);
+			}
+
+			return false;
+		}
+
+		if (user == null) {
+			context.getEvent().getEvent().setError(Errors.USER_NOT_FOUND);
+			return false;
+		}
+
+		if (!user.isEnabled()) {
+			context.getEvent().getEvent().setError(Errors.USER_DISABLED);
+			return false;
+		}
+
+		if (context.getRealm().isBruteForceProtected()) {
+            if (context.getProtector().isTemporarilyDisabled(context.getSession(), context.getRealm(), user)) {
+				context.getEvent().getEvent().setError(Errors.USER_TEMPORARILY_DISABLED);
+				return false;
+			}
+		}
+		
+		if (!validatePassword(context, user, inputData)) {
+			context.getEvent().getEvent().setError(Errors.INVALID_USER_CREDENTIALS);
+			return false;
+		}
+
+		String rememberMe = inputData.getFirst("rememberMe");
+		boolean remember = rememberMe != null && rememberMe.equalsIgnoreCase("on");
+		if (remember) {
+			context.getAuthenticationSession().setAuthNote(Details.REMEMBER_ME, "true");
+			context.getEvent().detail(Details.REMEMBER_ME, "true");
+		} else {
+			context.getAuthenticationSession().removeAuthNote(Details.REMEMBER_ME);
+		}
+		context.setUser(user);
+		return true;
+	}
+
+	public boolean validatePassword(AuthenticationFlowContext context, UserModel user,
+			MultivaluedMap<String, String> inputData) {
+		String encryptedPassword = inputData.getFirst(CredentialRepresentation.PASSWORD);
+		String secretKey = context.getAuthenticationSession().getAuthNote(Constants.SECRET_KEY);
+		String iv = inputData.getFirst(Constants.IV);
+		// Decrypt the password
+		String decryptedPassword = decryptPassword(encryptedPassword, secretKey, iv);
+
+		List<CredentialInput> credentials = new LinkedList<>();
+		credentials.add(UserCredentialModel.password(decryptedPassword));
+
+		if (decryptedPassword != null && !decryptedPassword.isEmpty()
+				&& context.getSession().userCredentialManager().isValid(context.getRealm(), user, credentials)) {
+			return true;
+		} else {
+			return false;
+		}
+	}
 
 	private String decryptPassword(String encryptedPassword, String secretKey, String iv) {
 		try {
 			byte[] decodedBytes = Base64.getDecoder().decode(encryptedPassword);
 			byte[] ivBytes = Base64.getDecoder().decode(iv);
-			IvParameterSpec ivSpec = new IvParameterSpec(ivBytes); 
+			IvParameterSpec ivSpec = new IvParameterSpec(ivBytes);
 
 			Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
 			SecretKeySpec keySpec = new SecretKeySpec(secretKey.getBytes("UTF-8"), "AES");
