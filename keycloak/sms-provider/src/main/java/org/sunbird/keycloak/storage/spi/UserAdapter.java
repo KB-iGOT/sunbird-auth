@@ -99,6 +99,10 @@ public class UserAdapter extends AbstractUserAdapterFederatedStorage {
     List<String> countrycodeValues = new ArrayList<>();
     countrycodeValues.add(user.getCountryCode());
     attributes.put("countryCode", countrycodeValues);
+    List<String> rootOrgValue = new ArrayList<>();
+    rootOrgValue.add(user.getOrg());
+    attributes.put("org", rootOrgValue);
+    attributes.put("roles", user.getRoles());
     logger.info("UserAdapter:getAttributes method ended " );
     return attributes;
   }
