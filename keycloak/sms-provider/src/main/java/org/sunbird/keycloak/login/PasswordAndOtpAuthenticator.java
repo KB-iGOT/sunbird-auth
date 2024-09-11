@@ -45,6 +45,7 @@ import org.keycloak.representations.idm.CredentialRepresentation;
 import org.keycloak.services.ServicesLogger;
 import org.keycloak.services.managers.AuthenticationManager;
 import org.keycloak.services.messages.Messages;
+import org.springframework.security.crypto.password.Pbkdf2PasswordEncoder;
 import org.sunbird.keycloak.resetcredential.sms.KeycloakSmsAuthenticatorConstants;
 import org.sunbird.keycloak.resetcredential.sms.KeycloakSmsAuthenticatorUtil;
 import org.sunbird.keycloak.utils.Constants;
@@ -702,6 +703,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 	}
 
 	private boolean validateHashedPassword(AuthenticationFlowContext context, UserModel user, String clientHashedPassword) {
+		try {
 		// Fetch the stored password from Keycloak
 		CredentialModel storedCredential = context.getSession().userCredentialManager().getStoredCredentialById(context.getRealm(), user, CredentialModel.PASSWORD);
 		
@@ -711,5 +713,9 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 	
 		// Compare the PBKDF2-hashed password from client with Keycloak's stored PBKDF2 hash
 		return passwordEncoder.matches(clientHashedPassword, storedPasswordHash);
+		} catch (Exception e){
+			logger.error("Failed to validateHashedPassword. Exception: ", e);
+		}
+		return false;
 	}
 }
