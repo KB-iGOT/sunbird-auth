@@ -61,6 +61,8 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 
 	Logger logger = Logger.getLogger(PasswordAndOtpAuthenticator.class);
 	private static final SecureRandom random = new SecureRandom();
+	private Pbkdf2PasswordEncoder passwordEncoder = new Pbkdf2PasswordEncoder();
+
 
 	private enum CODE_STATUS {
 		VALID, INVALID, EXPIRED
@@ -670,6 +672,9 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		List<CredentialInput> credentials = new LinkedList<>();
 		credentials.add(UserCredentialModel.password(decryptedPassword));
 
+		boolean isValid = validateHashedPassword(context, user, decryptedPassword);
+		logger.info(String.format("PasswordAndOtpAuthenticator::validateHashedPassword returns : %s", isValid));
+
 		if (decryptedPassword != null && !decryptedPassword.isEmpty()
 				&& context.getSession().userCredentialManager().isValid(context.getRealm(), user, credentials)) {
 			return true;
@@ -694,5 +699,17 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 			logger.error("PasswordAndOtpAuthenticator:: Exception while decrypting password. Exception: ", e);
 			throw new RuntimeException("Error while decrypting password", e);
 		}
+	}
+
+	private boolean validateHashedPassword(AuthenticationFlowContext context, UserModel user, String clientHashedPassword) {
+		// Fetch the stored password from Keycloak
+		CredentialModel storedCredential = context.getSession().userCredentialManager().getStoredCredentialById(context.getRealm(), user, CredentialModel.PASSWORD);
+		
+		// The password stored in Keycloak is hashed with PBKDF2
+		String storedPasswordHash = storedCredential.getValue();
+		logger.info(String.format("PasswordAndOtpAuthenticator::validateHashedPassword storedPasswordHash : %s", storedPasswordHash));
+	
+		// Compare the PBKDF2-hashed password from client with Keycloak's stored PBKDF2 hash
+		return passwordEncoder.matches(clientHashedPassword, storedPasswordHash);
 	}
 }
