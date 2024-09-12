@@ -702,18 +702,40 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		}
 	}
 
-	private boolean validateHashedPassword(AuthenticationFlowContext context, UserModel user, String clientHashedPassword) {
+	private boolean validateHashedPassword(AuthenticationFlowContext context, UserModel user,
+			String clientHashedPassword) {
 		try {
-		// Fetch the stored password from Keycloak
-		CredentialModel storedCredential = context.getSession().userCredentialManager().getStoredCredentialById(context.getRealm(), user, CredentialModel.PASSWORD);
-		
-		// The password stored in Keycloak is hashed with PBKDF2
-		String storedPasswordHash = storedCredential.getValue();
-		logger.info(String.format("PasswordAndOtpAuthenticator::validateHashedPassword storedPasswordHash : %s", storedPasswordHash));
-	
-		// Compare the PBKDF2-hashed password from client with Keycloak's stored PBKDF2 hash
-		return passwordEncoder.matches(clientHashedPassword, storedPasswordHash);
-		} catch (Exception e){
+
+			// Fetch the stored password credential
+			List<CredentialModel> credentials = context.getSession().userCredentialManager()
+					.getStoredCredentialsByType(context.getRealm(), user, CredentialModel.PASSWORD);
+
+			if (!credentials.isEmpty()) {
+				CredentialModel storedCredential = credentials.get(0);
+				logger.info(String.format(
+						"PasswordAndOtpAuthenticator::validateHashedPassword storedPasswordHash from list : %s",
+						storedCredential.getValue()));
+			} else {
+				logger.info(String.format("PasswordAndOtpAuthenticator::validateHashedPassword null value from type"));
+			}
+
+			// Fetch the stored password from Keycloak
+			CredentialModel storedCredential = context.getSession().userCredentialManager()
+					.getStoredCredentialById(context.getRealm(), user, CredentialModel.PASSWORD);
+
+			// The password stored in Keycloak is hashed with PBKDF2
+			if (storedCredential != null) {
+				String storedPasswordHash = storedCredential.getValue();
+				logger.info(String.format("PasswordAndOtpAuthenticator::validateHashedPassword storedPasswordHash : %s",
+						storedPasswordHash));
+				// Compare the PBKDF2-hashed password from client with Keycloak's stored PBKDF2
+				// hash
+				return passwordEncoder.matches(clientHashedPassword, storedPasswordHash);
+			} else {
+				logger.info(String.format("PasswordAndOtpAuthenticator::validateHashedPassword null value from id"));
+			}
+
+		} catch (Exception e) {
 			logger.error("Failed to validateHashedPassword. Exception: ", e);
 		}
 		return false;
