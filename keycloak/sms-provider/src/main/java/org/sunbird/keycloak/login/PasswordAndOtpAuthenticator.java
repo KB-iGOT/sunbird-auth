@@ -85,9 +85,6 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		// Store the secret key as an authentication session note
 		context.getAuthenticationSession().setAuthNote(Constants.SECRET_KEY, secretKey);
 
-		// Store the incoming userDetails in session...
-		context.getAuthenticationSession().setAuthNote(Constants.ATTEMPTED_EMAIL_OR_MOBILE_NUMBER, getEmailOrMobileNumber(context));
-	
 		LoginFormsProvider formsProvider = context.form();
 		formsProvider.setAttribute(Constants.SECRET_KEY, secretKey);
 		context.challenge(formsProvider.createForm(Constants.LOGIN_PAGE));
@@ -124,7 +121,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		String incomingEmailOrMobile = getEmailOrMobileNumber(context);
 		String storedEmailOrMobile = context.getAuthenticationSession().getAuthNote(Constants.ATTEMPTED_EMAIL_OR_MOBILE_NUMBER);
 
-		if (!Objects.equal(incomingEmailOrMobile, storedEmailOrMobile)) {
+		if (storedEmailOrMobile != null && !Objects.equal(incomingEmailOrMobile, storedEmailOrMobile)) {
 			context.getEvent().getEvent().setError(Errors.DIFFERENT_USER_AUTHENTICATED);
 			goErrorPage(context, "Differnet user credentials found for authentication.");
 			return;
