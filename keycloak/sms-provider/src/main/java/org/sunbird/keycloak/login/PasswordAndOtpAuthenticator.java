@@ -122,6 +122,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		String storedEmailOrMobile = context.getAuthenticationSession().getAuthNote(Constants.ATTEMPTED_EMAIL_OR_MOBILE_NUMBER);
 
 		if (storedEmailOrMobile != null && !Objects.equal(incomingEmailOrMobile, storedEmailOrMobile)) {
+			logger.error(String.format("storedEmailOrMobile: %s, incomingEmailOrMobile: %s", storedEmailOrMobile, incomingEmailOrMobile));
 			context.getEvent().getEvent().setError(Errors.DIFFERENT_USER_AUTHENTICATED);
 			goErrorPage(context, "Differnet user credentials found for authentication.");
 			return;
