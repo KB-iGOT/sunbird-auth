@@ -118,16 +118,6 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		}
 
 		String flagPage = getValue(context, Constants.FLAG_PAGE);
-		String incomingEmailOrMobile = getEmailOrMobileNumber(context);
-		String storedEmailOrMobile = context.getAuthenticationSession().getAuthNote(Constants.ATTEMPTED_EMAIL_OR_MOBILE_NUMBER);
-
-		if (storedEmailOrMobile != null && !Objects.equal(incomingEmailOrMobile, storedEmailOrMobile)) {
-			logger.error(String.format("storedEmailOrMobile: %s, incomingEmailOrMobile: %s", storedEmailOrMobile, incomingEmailOrMobile));
-			context.getEvent().getEvent().setError(Errors.DIFFERENT_USER_AUTHENTICATED);
-			goErrorPage(context, "Differnet user credentials found for authentication.");
-			return;
-		}
-
 		logger.info("OtpSmsFormAuthenticator::action:: " + flagPage);
 		switch (flagPage) {
 			case Constants.FLAG_OTP_PAGE:
@@ -300,6 +290,23 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		if (null == user) {
 			goErrorPage(context, "Oops, Member not found.");
 			return;
+		}
+
+		if (context.getUser() != null) {
+			logger.error(
+					"We already have one user associated with this session... userId : " + context.getUser().getId());
+			// Let's compare both the user's are same ?
+			if (!user.getId().equalsIgnoreCase(context.getUser().getId())) {
+				logger.error(String.format(
+						"Received different user details for saved session. Saved userId: %s, New userId: %s. Returning error...",
+						context.getUser().getId(), user.getId()));
+				context.getEvent().getEvent().setError(Errors.DIFFERENT_USER_AUTHENTICATED);
+				goErrorPage(context, "Differnet user credentials found for authentication.");
+				return;		
+			}
+		} else {
+			logger.info("Saving user details in session with userId: " + user.getId());
+			context.setUser(user);
 		}
 
 		// Generate Random Digit
