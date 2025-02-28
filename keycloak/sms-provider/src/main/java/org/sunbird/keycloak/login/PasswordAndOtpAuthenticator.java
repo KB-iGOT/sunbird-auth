@@ -493,7 +493,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		String storedCode = context.getAuthenticationSession().getAuthNote(Constants.SESSION_OTP_CODE);
 		logger.info("Form Data");
 		logger.info("Form Data");
-		logger.info("Entered Code: %s, Stored Code %s",enteredCode, storedCode);
+		logger.info(String.format("Entered Code: %s, Stored Code %s",enteredCode, storedCode));
 		if (storedCode != null && enteredCode != null) {
 			result = storedCode.equalsIgnoreCase(enteredCode) ? CODE_STATUS.VALID : CODE_STATUS.INVALID;
 		}
