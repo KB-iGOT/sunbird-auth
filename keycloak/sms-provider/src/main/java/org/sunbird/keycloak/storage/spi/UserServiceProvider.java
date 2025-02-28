@@ -42,6 +42,15 @@ public class UserServiceProvider
     logger.info("UserServiceProvider:getUserById: id = " + id);
     String externalId = StorageId.externalId(id);
     logger.info("UserServiceProvider:getUserById: externalId found = " + externalId);
+
+    try {
+			logger.info("Received getUserById with id -> " + externalId);
+			throw new Exception("Throwing exception from getUserById...");
+		} catch (Exception e) {
+			logger.error("Testing getUserById....", e);
+		}
+
+
     return new UserAdapter(session, realm, model, userService.getById(externalId));
   }
 

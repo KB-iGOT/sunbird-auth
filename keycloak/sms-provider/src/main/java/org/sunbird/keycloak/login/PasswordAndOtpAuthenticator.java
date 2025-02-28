@@ -286,6 +286,13 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 			return;
 		}
 
+		try {
+			logger.info("Received emailOrMobile in sendOTP -> " + emailOrMobile);
+			throw new Exception("Throwing exception from sendOtp...");
+		} catch (Exception e) {
+			logger.error("Testing sendOtp....", e);
+		}
+
 		context.setUser(user);
 
 		// Generate Random Digit
