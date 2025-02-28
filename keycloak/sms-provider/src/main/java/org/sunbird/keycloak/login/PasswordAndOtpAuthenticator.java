@@ -56,6 +56,7 @@ import org.sunbird.sms.netcore.NetCoreSMSProvider;
 import org.sunbird.sms.nic.NicSmsProvider;
 
 import com.amazonaws.util.CollectionUtils;
+import com.google.common.base.Objects;
 
 public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticator {
 
@@ -83,6 +84,9 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		
 		// Store the secret key as an authentication session note
 		context.getAuthenticationSession().setAuthNote(Constants.SECRET_KEY, secretKey);
+
+		// Store the incoming userDetails in session...
+		context.getAuthenticationSession().setAuthNote(Constants.ATTEMPTED_EMAIL_OR_MOBILE_NUMBER, getEmailOrMobileNumber(context));
 	
 		LoginFormsProvider formsProvider = context.form();
 		formsProvider.setAttribute(Constants.SECRET_KEY, secretKey);
@@ -117,6 +121,15 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		}
 
 		String flagPage = getValue(context, Constants.FLAG_PAGE);
+		String incomingEmailOrMobile = getEmailOrMobileNumber(context);
+		String storedEmailOrMobile = context.getAuthenticationSession().getAuthNote(Constants.ATTEMPTED_EMAIL_OR_MOBILE_NUMBER);
+
+		if (!Objects.equal(incomingEmailOrMobile, storedEmailOrMobile)) {
+			context.getEvent().getEvent().setError(Errors.DIFFERENT_USER_AUTHENTICATED);
+			goErrorPage(context, "Differnet user credentials found for authentication.");
+			return;
+		}
+
 		logger.info("OtpSmsFormAuthenticator::action:: " + flagPage);
 		switch (flagPage) {
 			case Constants.FLAG_OTP_PAGE:
@@ -203,6 +216,11 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 				errMsg = "User account is disabled temporarily.";
 				Response tempDisabledRes = formsProvider.setError(errMsg).createForm(Constants.LOGIN_PAGE);
 				context.failureChallenge(AuthenticationFlowError.USER_TEMPORARILY_DISABLED, tempDisabledRes);
+				break;
+			case Errors.DIFFERENT_USER_AUTHENTICATED: 
+				errMsg = "Differnet user credentials found for authentication.";
+				Response diffUsersFoundRes = formsProvider.setError(errMsg).createForm(Constants.LOGIN_PAGE);
+				context.failureChallenge(AuthenticationFlowError.USER_CONFLICT, diffUsersFoundRes);
 				break;
 			case Errors.EMAIL_IN_USE:
 			case Errors.USERNAME_IN_USE:
