@@ -301,8 +301,6 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 			return;
 		}
 
-		context.setUser(user);
-
 		// Generate Random Digit
 		Map<String, String> attributes = generateOTP(context);
 
