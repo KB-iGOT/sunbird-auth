@@ -295,6 +295,14 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 
 		context.setUser(user);
 
+
+		try {
+			logger.info("This is after setting the user in context -> " + emailOrMobile);
+			throw new Exception("Throwing exception from sendOtp...");
+		} catch (Exception e) {
+			logger.error("Testing sendOtp....", e);
+		}
+
 		// Generate Random Digit
 		Map<String, String> attributes = generateOTP(context);
 
