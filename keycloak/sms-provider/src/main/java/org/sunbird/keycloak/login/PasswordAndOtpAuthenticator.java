@@ -205,7 +205,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 				context.failureChallenge(AuthenticationFlowError.USER_TEMPORARILY_DISABLED, tempDisabledRes);
 				break;
 			case Errors.DIFFERENT_USER_AUTHENTICATED: 
-				errMsg = "Differnet user credentials found for authentication.";
+				errMsg = "Authentication Error! Please enter your credentials again.";
 				Response diffUsersFoundRes = formsProvider.setError(errMsg).createForm(Constants.LOGIN_PAGE);
 				context.failureChallenge(AuthenticationFlowError.USER_CONFLICT, diffUsersFoundRes);
 				break;
