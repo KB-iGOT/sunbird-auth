@@ -83,7 +83,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		
 		// Store the secret key as an authentication session note
 		context.getAuthenticationSession().setAuthNote(Constants.SECRET_KEY, secretKey);
-	
+
 		LoginFormsProvider formsProvider = context.form();
 		formsProvider.setAttribute(Constants.SECRET_KEY, secretKey);
 		context.challenge(formsProvider.createForm(Constants.LOGIN_PAGE));
@@ -204,6 +204,11 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 				Response tempDisabledRes = formsProvider.setError(errMsg).createForm(Constants.LOGIN_PAGE);
 				context.failureChallenge(AuthenticationFlowError.USER_TEMPORARILY_DISABLED, tempDisabledRes);
 				break;
+			case Errors.DIFFERENT_USER_AUTHENTICATED: 
+				errMsg = "Authentication Error! Please enter your credentials again.";
+				Response diffUsersFoundRes = formsProvider.setError(errMsg).createForm(Constants.LOGIN_PAGE);
+				context.failureChallenge(AuthenticationFlowError.USER_CONFLICT, diffUsersFoundRes);
+				break;
 			case Errors.EMAIL_IN_USE:
 			case Errors.USERNAME_IN_USE:
 			default:
@@ -286,17 +291,31 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 			return;
 		}
 
-		context.setUser(user);
+		if (context.getUser() != null) {
+			// Let's compare both the user's are same ?
+			if (!user.getId().equalsIgnoreCase(context.getUser().getId())) {
+				logger.error(String.format(
+						"Received different user details for saved session. Saved userId: %s, New userId: %s. Returning error...",
+						context.getUser().getId(), user.getId()));
+				context.getEvent().getEvent().setError(Errors.DIFFERENT_USER_AUTHENTICATED);
+				goErrorPage(context, "Authentication Error! Please enter your credentials again.");
+				return;		
+			}
+		}
 
 		// Generate Random Digit
 		Map<String, String> attributes = generateOTP(context);
 
-		// Put the data into session, to be compared
-		context.getAuthenticationSession().setAuthNote(Constants.ATTEMPTED_EMAIL_OR_MOBILE_NUMBER, emailOrMobile);
-		context.getAuthenticationSession().setAuthNote(Details.REDIRECT_URI, redirectUri);
-
 		// Send the key into the User Mobile Phone
 		if (sendOtpByEmailOrSms(context, emailOrMobile, attributes.get(Constants.SESSION_OTP_CODE))) {
+			//SMS is sent successfully, let's save the details in session and return the necessary page.			
+			context.getAuthenticationSession().setAuthNote(Constants.SESSION_OTP_CODE, attributes.get(Constants.SESSION_OTP_CODE));
+			context.getAuthenticationSession().setAuthNote(Constants.SESSION_OTP_EXPIRE_TIME, attributes.get(KeycloakSmsAuthenticatorConstants.CONF_PRP_SMS_CODE_TTL));
+			context.getAuthenticationSession().setAuthNote(Constants.ATTEMPTED_EMAIL_OR_MOBILE_NUMBER, emailOrMobile);
+			context.getAuthenticationSession().setAuthNote(Details.REDIRECT_URI, redirectUri);
+
+			logger.info("Saving user details in session with userId: " + user.getId());
+			context.setUser(user);
 			goPage(context, Constants.PAGE_INPUT_OTP, StringUtils.EMPTY, attributes);
 		} else {
 			goErrorPage(context, "Failed to send out SMS. Please contact Administrator.");
@@ -422,7 +441,6 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		String code = KeycloakSmsAuthenticatorUtil.getSmsCode(nrOfDigits);
 
 		Long expireTime = (new Date()).getTime() + (ttl * 1000);
-		storeSMSCode(context, code, expireTime);
 		Map<String, String> attributes = new HashMap<String, String>();
 		attributes.put(KeycloakSmsAuthenticatorConstants.CONF_PRP_SMS_CODE_TTL, String.valueOf(expireTime));
 		attributes.put(Constants.SESSION_OTP_CODE, code);
@@ -479,11 +497,6 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		return StringUtils.EMPTY;
 	}
 
-	private void storeSMSCode(AuthenticationFlowContext context, String code, Long expiringAt) {
-		context.getAuthenticationSession().setAuthNote(Constants.SESSION_OTP_CODE, code);
-		context.getAuthenticationSession().setAuthNote(Constants.SESSION_OTP_EXPIRE_TIME, String.valueOf(expiringAt));
-	}
-
 	protected CODE_STATUS validateCode(AuthenticationFlowContext context) {
 		CODE_STATUS result = CODE_STATUS.INVALID;
 
@@ -491,9 +504,6 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		String enteredCode = formData.getFirst(KeycloakSmsAuthenticatorConstants.ANSW_SMS_CODE);
 
 		String storedCode = context.getAuthenticationSession().getAuthNote(Constants.SESSION_OTP_CODE);
-		logger.info("Form Data");
-		logger.info("Form Data");
-		logger.info(String.format("Entered Code: %s, Stored Code %s",enteredCode, storedCode));
 		if (storedCode != null && enteredCode != null) {
 			result = storedCode.equalsIgnoreCase(enteredCode) ? CODE_STATUS.VALID : CODE_STATUS.INVALID;
 		}
