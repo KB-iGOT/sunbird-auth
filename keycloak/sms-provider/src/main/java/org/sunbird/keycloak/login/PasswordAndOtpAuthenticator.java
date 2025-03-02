@@ -56,7 +56,6 @@ import org.sunbird.sms.netcore.NetCoreSMSProvider;
 import org.sunbird.sms.nic.NicSmsProvider;
 
 import com.amazonaws.util.CollectionUtils;
-import com.google.common.base.Objects;
 
 public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticator {
 
@@ -293,15 +292,13 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		}
 
 		if (context.getUser() != null) {
-			logger.error(
-					"We already have one user associated with this session... userId : " + context.getUser().getId());
 			// Let's compare both the user's are same ?
 			if (!user.getId().equalsIgnoreCase(context.getUser().getId())) {
 				logger.error(String.format(
 						"Received different user details for saved session. Saved userId: %s, New userId: %s. Returning error...",
 						context.getUser().getId(), user.getId()));
 				context.getEvent().getEvent().setError(Errors.DIFFERENT_USER_AUTHENTICATED);
-				goErrorPage(context, "Differnet user credentials found for authentication.");
+				goErrorPage(context, "Authentication Error! Please enter your credentials again.");
 				return;		
 			}
 		}
