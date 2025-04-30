@@ -45,6 +45,7 @@ import org.keycloak.representations.idm.CredentialRepresentation;
 import org.keycloak.services.ServicesLogger;
 import org.keycloak.services.managers.AuthenticationManager;
 import org.keycloak.services.messages.Messages;
+import org.springframework.security.crypto.password.Pbkdf2PasswordEncoder;
 import org.sunbird.keycloak.resetcredential.sms.KeycloakSmsAuthenticatorConstants;
 import org.sunbird.keycloak.resetcredential.sms.KeycloakSmsAuthenticatorUtil;
 import org.sunbird.keycloak.utils.Constants;
@@ -61,6 +62,8 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 
 	Logger logger = Logger.getLogger(PasswordAndOtpAuthenticator.class);
 	private static final SecureRandom random = new SecureRandom();
+	private Pbkdf2PasswordEncoder passwordEncoder = new Pbkdf2PasswordEncoder();
+
 
 	private enum CODE_STATUS {
 		VALID, INVALID, EXPIRED
@@ -673,6 +676,9 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		List<CredentialInput> credentials = new LinkedList<>();
 		credentials.add(UserCredentialModel.password(decryptedPassword));
 
+		boolean isValid = validateHashedPassword(context, user, decryptedPassword);
+		logger.info(String.format("PasswordAndOtpAuthenticator::validateHashedPassword returns : %s", isValid));
+
 		if (decryptedPassword != null && !decryptedPassword.isEmpty()
 				&& context.getSession().userCredentialManager().isValid(context.getRealm(), user, credentials)) {
 			return true;
@@ -697,5 +703,44 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 			logger.error("PasswordAndOtpAuthenticator:: Exception while decrypting password. Exception: ", e);
 			throw new RuntimeException("Error while decrypting password", e);
 		}
+	}
+
+	private boolean validateHashedPassword(AuthenticationFlowContext context, UserModel user,
+			String clientHashedPassword) {
+		try {
+
+			// Fetch the stored password credential
+			List<CredentialModel> credentials = context.getSession().userCredentialManager()
+					.getStoredCredentialsByType(context.getRealm(), user, CredentialModel.PASSWORD);
+
+			if (!credentials.isEmpty()) {
+				CredentialModel storedCredential = credentials.get(0);
+				logger.info(String.format(
+						"PasswordAndOtpAuthenticator::validateHashedPassword storedPasswordHash from list : %s",
+						storedCredential.getValue()));
+			} else {
+				logger.info(String.format("PasswordAndOtpAuthenticator::validateHashedPassword null value from type"));
+			}
+
+			// Fetch the stored password from Keycloak
+			CredentialModel storedCredential = context.getSession().userCredentialManager()
+					.getStoredCredentialById(context.getRealm(), user, CredentialModel.PASSWORD);
+
+			// The password stored in Keycloak is hashed with PBKDF2
+			if (storedCredential != null) {
+				String storedPasswordHash = storedCredential.getValue();
+				logger.info(String.format("PasswordAndOtpAuthenticator::validateHashedPassword storedPasswordHash : %s",
+						storedPasswordHash));
+				// Compare the PBKDF2-hashed password from client with Keycloak's stored PBKDF2
+				// hash
+				return passwordEncoder.matches(clientHashedPassword, storedPasswordHash);
+			} else {
+				logger.info(String.format("PasswordAndOtpAuthenticator::validateHashedPassword null value from id"));
+			}
+
+		} catch (Exception e) {
+			logger.error("Failed to validateHashedPassword. Exception: ", e);
+		}
+		return false;
 	}
 }
