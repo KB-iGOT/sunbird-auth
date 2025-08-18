@@ -4,6 +4,7 @@ import java.io.File;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
 
 import org.jboss.logging.Logger;
 import org.keycloak.models.AuthenticatorConfigModel;
@@ -23,7 +24,7 @@ public class KeycloakSmsAuthenticatorUtil {
 
     public static String getAttributeValue(UserModel user, String attributeName) {
         String result = null;
-        List<String> values = user.getAttribute(attributeName);
+        List<String> values = user.getAttributeStream(attributeName).collect(Collectors.toList());
         if (values != null && values.size() > 0) {
             result = values.get(0);
         }

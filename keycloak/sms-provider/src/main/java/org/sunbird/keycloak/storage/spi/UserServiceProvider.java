@@ -4,6 +4,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.Stream; // Add this import
 
 import org.jboss.logging.Logger;
 import org.keycloak.component.ComponentModel;
@@ -19,115 +20,99 @@ import org.keycloak.storage.user.UserQueryProvider;
 import org.sunbird.keycloak.utils.Constants;
 
 public class UserServiceProvider
-    implements UserStorageProvider, UserLookupProvider, UserQueryProvider {
-  private static final Logger logger = Logger.getLogger(UserStorageProvider.class);
+        implements UserStorageProvider, UserLookupProvider, UserQueryProvider {
+    private static final Logger logger = Logger.getLogger(UserStorageProvider.class);
 
-  public static final String PASSWORD_CACHE_KEY = UserAdapter.class.getName() + ".password";
-  private final KeycloakSession session;
-  private final ComponentModel model;
-  private final UserService userService;
+    public static final String PASSWORD_CACHE_KEY = UserAdapter.class.getName() + ".password";
+    private final KeycloakSession session;
+    private final ComponentModel model;
+    private final UserService userService;
 
-  public UserServiceProvider(KeycloakSession session, ComponentModel model,
-      UserService userService) {
-    this.session = session;
-    this.model = model;
-    this.userService = userService;
-  }
-
-  @Override
-  public void close() {}
-
-  @Override
-  public UserModel getUserById(String id, RealmModel realm) {
-    logger.info("UserServiceProvider:getUserById: id = " + id);
-    String externalId = StorageId.externalId(id);
-    logger.info("UserServiceProvider:getUserById: externalId found = " + externalId);
-    return new UserAdapter(session, realm, model, userService.getById(externalId));
-  }
-
-  @Override
-  public UserModel getUserByUsername(String username, RealmModel realm) {
-    logger.info("UserServiceProvider: getUserByUsername called");
-    List<User> users = userService.getByUsername(username);
-    if (users != null && users.size() == 1) {
-      return new UserAdapter(session, realm, model, users.get(0));
-    } else if (users != null && users.size() > 1) {
-      throw new ModelDuplicateException(
-          "Multiple users are associated with this login credentials.", "login credentials");
-    } else {
-      return null;
+    public UserServiceProvider(KeycloakSession session, ComponentModel model,
+                               UserService userService) {
+        this.session = session;
+        this.model = model;
+        this.userService = userService;
     }
-  }
 
-  @Override
-  public UserModel getUserByEmail(String email, RealmModel realm) {
-    logger.info("UserServiceProvider: getUserByEmail called");
-    return getUserByUsername(email, realm);
-  }
+    @Override
+    public void close() {}
 
-  @Override
-  public int getUsersCount(RealmModel realm) {
-    return 0;
-  }
-
-  @Override
-  public List<UserModel> getUsers(RealmModel realm) {
-    return Collections.emptyList();
-  }
-
-  @Override
-  public List<UserModel> getUsers(RealmModel realm, int firstResult, int maxResults) {
-    return Collections.emptyList();
-  }
-
-  @Override
-  public List<UserModel> searchForUser(String search, RealmModel realm) {
-    logger.info("UserServiceProvider: searchForUser called");
-    return userService.getByUsername(search).stream()
-        .map(user -> new UserAdapter(session, realm, model, user)).collect(Collectors.toList());
-  }
-
-  @Override
-  public List<UserModel> searchForUser(String search, RealmModel realm, int firstResult,
-      int maxResults) {
-    logger.info("UserServiceProvider: searchForUser called with firstResult = " + firstResult);
-    return searchForUser(search, realm);
-  }
-
-  @Override
-  public List<UserModel> searchForUser(Map<String, String> params, RealmModel realm) {
-    return Collections.emptyList();
-  }
-
-  @Override
-  public List<UserModel> searchForUser(Map<String, String> params, RealmModel realm,
-      int firstResult, int maxResults) {
-
-    return Collections.emptyList();
-  }
-
-  @Override
-  public List<UserModel> getGroupMembers(RealmModel realm, GroupModel group, int firstResult,
-      int maxResults) {
-
-    return Collections.emptyList();
-  }
-
-  @Override
-  public List<UserModel> getGroupMembers(RealmModel realm, GroupModel group) {
-
-    return Collections.emptyList();
-  }
-
-  @Override
-  public List<UserModel> searchForUserByUserAttribute(String attrName, String attrValue,
-      RealmModel realm) {
-    logger.info("UserServiceProvider: searchForUserByUserAttribute called");
-    if (Constants.PHONE.equalsIgnoreCase(attrName)) {
-      return userService.getByKey(attrName, attrValue).stream()
-          .map(user -> new UserAdapter(session, realm, model, user)).collect(Collectors.toList());
+    @Override
+    public UserModel getUserById(RealmModel realm, String id) {
+        logger.info("UserServiceProvider:getUserById: id = " + id);
+        String externalId = StorageId.externalId(id);
+        logger.info("UserServiceProvider:getUserById: externalId found = " + externalId);
+        return new UserAdapter(session, realm, model, userService.getById(externalId));
     }
-    return Collections.emptyList();
-  }
+
+    @Override
+    public UserModel getUserByUsername(RealmModel realm, String username) {
+        logger.info("UserServiceProvider: getUserByUsername called");
+        List<User> users = userService.getByUsername(username);
+        if (users != null && users.size() == 1) {
+            return new UserAdapter(session, realm, model, users.get(0));
+        } else if (users != null && users.size() > 1) {
+            throw new ModelDuplicateException(
+                    "Multiple users are associated with this login credentials.", "login credentials");
+        } else {
+            return null;
+        }
+    }
+
+    // Fix: Add missing method required by UserLookupProvider interface
+    @Override
+    public UserModel getUserByEmail(RealmModel realm, String email) {
+        logger.info("UserServiceProvider: getUserByEmail called");
+        return getUserByUsername(realm, email);
+    }
+
+    @Override
+    public int getUsersCount(RealmModel realm) {
+        return 0;
+    }
+
+    @Override
+    public Stream<UserModel> searchForUserByUserAttributeStream(RealmModel realm, String attrName, String attrValue) {
+        logger.info("UserServiceProvider: searchForUserByUserAttributeStream called");
+        if (Constants.PHONE.equalsIgnoreCase(attrName)) {
+            return userService.getByKey(attrName, attrValue).stream()
+                    .map(user -> new UserAdapter(session, realm, model, user));
+        }
+        return Stream.empty();
+    }
+
+    @Override
+    public Stream<UserModel> searchForUserStream(RealmModel realm, String search) {
+        logger.info("UserServiceProvider: searchForUserStream called");
+        return userService.getByUsername(search).stream()
+                .map(user -> new UserAdapter(session, realm, model, user));
+    }
+
+    @Override
+    public Stream<UserModel> searchForUserStream(RealmModel realm, String search, Integer firstResult, Integer maxResults) {
+        logger.info("UserServiceProvider: searchForUserStream called with firstResult = " + firstResult);
+        return searchForUserStream(realm, search);
+    }
+
+    @Override
+    public Stream<UserModel> searchForUserStream(RealmModel realm, Map<String, String> params) {
+        return Stream.empty();
+    }
+
+    @Override
+    public Stream<UserModel> searchForUserStream(RealmModel realm, Map<String, String> params, Integer firstResult, Integer maxResults) {
+        return Stream.empty();
+    }
+
+    @Override
+    public Stream<UserModel> getGroupMembersStream(RealmModel realm, GroupModel group, Integer firstResult, Integer maxResults) {
+        return Stream.empty();
+    }
+
+    @Override
+    public Stream<UserModel> getGroupMembersStream(RealmModel realm, GroupModel group) {
+        return Stream.empty();
+    }
 
 }
