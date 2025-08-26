@@ -84,8 +84,29 @@ public class UserServiceProvider
 
     @Override
     public Stream<UserModel> searchForUserStream(RealmModel realm, String search) {
-        logger.info("UserServiceProvider: searchForUserStream called");
-        return userService.getByUsername(search).stream()
+        logger.info("UserServiceProvider: searchForUserStream called with search: " + search);
+        
+        if (search == null || search.trim().isEmpty()) {
+            return Stream.empty();
+        }
+        
+        // Enhanced search logic
+        String trimmedSearch = search.trim();
+        List<User> users = userService.getByUsername(trimmedSearch);
+        
+        // If no users found by username, try additional searches
+        if (users.isEmpty()) {
+            // Try searching by email if it looks like an email
+            if (trimmedSearch.contains("@")) {
+                users = userService.getByKey("email", trimmedSearch);
+            }
+            // Try searching by phone if it's numeric
+            else if (trimmedSearch.matches("\\d+")) {
+                users = userService.getByKey("phone", trimmedSearch);
+            }
+        }
+        
+        return users.stream()
                 .map(user -> new UserAdapter(session, realm, model, user));
     }
 
