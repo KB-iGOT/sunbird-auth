@@ -12,6 +12,7 @@ public class User {
   private String lastName;
   private String password;
   private boolean enabled;
+  private boolean isEmailVerified;
   private String countryCode;
   private String org;
   private List<String> roles;
@@ -52,7 +53,7 @@ public class User {
     return username;
   }
 
-  public void setUsername(String username) { 
+  public void setUsername(String username) {
     this.username = username;
   }
 
@@ -103,5 +104,13 @@ public class User {
   public List<String> getRoles() { return roles; }
 
   public void setRoles(List<String> roles) { this.roles = roles; }
+
+    public boolean isEmailVerified() {
+        return isEmailVerified;
+    }
+
+    public void setEmailVerified(boolean verified) {
+        this.isEmailVerified = verified;
+    }
 
 }

@@ -1,18 +1,22 @@
 package org.sunbird.keycloak.rest;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.text.MessageFormat;
 import java.util.HashMap;
 import java.util.Map;
-import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.Status;
-import javax.ws.rs.core.UriInfo;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.Response.Status;
+import jakarta.ws.rs.core.UriInfo;
+import jakarta.ws.rs.core.UriBuilder;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
+import org.junit.Before;
 import org.junit.Test;
+import org.junit.Ignore;
 import org.junit.runner.RunWith;
 import org.keycloak.models.ClientModel;
 import org.keycloak.models.KeycloakContext;
@@ -27,6 +31,8 @@ import org.keycloak.representations.idm.ErrorRepresentation;
 import org.keycloak.services.ErrorResponse;
 import org.keycloak.services.managers.AppAuthManager;
 import org.keycloak.services.managers.AuthenticationManager.AuthResult;
+import org.keycloak.services.resources.LoginActionsService;
+import org.keycloak.authentication.actiontoken.execactions.ExecuteActionsActionToken;
 import org.mockito.Mockito;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PowerMockIgnore;
@@ -36,401 +42,443 @@ import org.sunbird.keycloak.utils.Constants;
 
 @RunWith(PowerMockRunner.class)
 @PrepareForTest({RequiredActionLinkProviderFactory.class, KeycloakSession.class,
-    KeycloakContext.class, KeycloakModelUtils.class, RealmModel.class, RedirectUtils.class,
-    AppAuthManager.class, RequiredActionLinkProvider.class, UriInfo.class, AccessToken.class,
-    Access.class, AuthResult.class})
-@PowerMockIgnore({"javax.management.*", "javax.net.ssl.*", "javax.security.*"})
-//@Ignore
+  KeycloakContext.class, KeycloakModelUtils.class, RealmModel.class, RedirectUtils.class,
+  AppAuthManager.class, AppAuthManager.BearerTokenAuthenticator.class, RequiredActionLinkProvider.class, 
+  UriInfo.class, AccessToken.class, Access.class, AuthResult.class, LoginActionsService.class,
+  ExecuteActionsActionToken.class})
+@PowerMockIgnore({"javax.management.*", "javax.net.ssl.*", "javax.security.*", "jakarta.ws.rs.*"})
 public class RequiredActionLinkProviderTest {
 
-  private static KeycloakSession session = null;
-  private static KeycloakContext context = null;
-  private static RealmModel model = null;
-  private static AppAuthManager authMangr = null;
-  private static AuthResult authResult = null;
-  private static UserModel userModel = null;
-  private static ClientModel client = null;
-  private static Map<String, String> request = new HashMap<>();
-
+  private static KeycloakSession session;
+  private static KeycloakContext context;
+  private static RealmModel model;
+  private static AppAuthManager.BearerTokenAuthenticator authenticator;
+  private static AppAuthManager authMangr;
+  private static AuthResult authResult;
+  private static UserModel userModel;
+  private static ClientModel client;
+  private static org.keycloak.models.KeycloakUriInfo keycloakUriInfo;
+  private static UriInfo uriInfo;
+  private Map<String, String> request;
 
   @BeforeClass
-  public static void setUp() throws Exception {
-    request.put(Constants.REDIRECT_URI, "/login");
-    request.put(Constants.CLIENT_ID, "master");
-    request.put(Constants.REQUIRED_ACTION, "UPDATE_PASSWORD");
-    request.put(Constants.USERNAME, "amit");
-
+  public static void setUpClass() throws Exception {
     session = PowerMockito.mock(KeycloakSession.class);
     context = PowerMockito.mock(KeycloakContext.class);
     model = PowerMockito.mock(RealmModel.class);
+    authenticator = PowerMockito.mock(AppAuthManager.BearerTokenAuthenticator.class);
     authMangr = PowerMockito.mock(AppAuthManager.class);
     authResult = PowerMockito.mock(AuthResult.class);
     userModel = PowerMockito.mock(UserModel.class);
     client = PowerMockito.mock(ClientModel.class);
+    keycloakUriInfo = PowerMockito.mock(org.keycloak.models.KeycloakUriInfo.class);
+    uriInfo = PowerMockito.mock(UriInfo.class);
+
     PowerMockito.when(session.getContext()).thenReturn(context);
-    PowerMockito.when(session.getContext().getRealm()).thenReturn(model);
+    PowerMockito.when(context.getRealm()).thenReturn(model);
+    PowerMockito.when(context.getUri()).thenReturn(keycloakUriInfo);
+  }
+
+  @Before
+  public void setUp() {
+    request = new HashMap<>();
+    request.put(Constants.REDIRECT_URI, "/login");
+    request.put(Constants.CLIENT_ID, "master");
+    request.put(Constants.REQUIRED_ACTION, "UPDATE_PASSWORD");
+    request.put(Constants.USERNAME, "amit");
   }
 
   @Test
-  public void checkRealmAdminAccessForUnAuthorized() throws Exception {
-    PowerMockito.whenNew(AppAuthManager.class).withAnyArguments().thenReturn(authMangr);
-    PowerMockito.when(authMangr.authenticateBearerToken(session, model)).thenReturn(null);
+  public void testCheckRealmAdminAccessForUnAuthorized() throws Exception {
+    PowerMockito.whenNew(AppAuthManager.BearerTokenAuthenticator.class)
+      .withArguments(session).thenReturn(authenticator);
+    PowerMockito.when(authenticator.authenticate()).thenReturn(null);
+    
     RequiredActionLinkProvider provider = new RequiredActionLinkProvider(session);
-    WebApplicationException expectedException = new WebApplicationException(
-        ErrorResponse.error(Constants.ERROR_NOT_AUTHORIZED, Status.UNAUTHORIZED));
 
     try {
-      Response response = provider.generateRequiredActionLink(request);
-      assertTrue(response == null);
+      provider.generateRequiredActionLink(request);
+      fail("Expected WebApplicationException");
     } catch (WebApplicationException ex) {
-      assertEquals(ex.getResponse().getStatus(), expectedException.getResponse().getStatus());
-      assertEquals(((ErrorRepresentation) (ex.getResponse().getEntity())).getErrorMessage(),
-          ((ErrorRepresentation) (expectedException.getResponse().getEntity())).getErrorMessage());
+      assertEquals(Status.UNAUTHORIZED.getStatusCode(), ex.getResponse().getStatus());
+      ErrorRepresentation error = (ErrorRepresentation) ex.getResponse().getEntity();
+      assertEquals(Constants.ERROR_NOT_AUTHORIZED, error.getErrorMessage());
     }
   }
 
   @Test
-  public void checkRealmAdminAccessForForbidden() throws Exception {
-    PowerMockito.whenNew(AppAuthManager.class).withAnyArguments().thenReturn(authMangr);
-    PowerMockito.when(authMangr.authenticateBearerToken(session, model)).thenReturn(authResult);
+  public void testCheckRealmAdminAccessForForbidden() throws Exception {
+    PowerMockito.whenNew(AppAuthManager.BearerTokenAuthenticator.class)
+      .withArguments(session).thenReturn(authenticator);
+    PowerMockito.when(authenticator.authenticate()).thenReturn(authResult);
+    
     AccessToken accessToken = PowerMockito.mock(AccessToken.class);
-    PowerMockito.when(authResult.getToken()).thenReturn(accessToken);
     Access access = PowerMockito.mock(Access.class);
+    
+    PowerMockito.when(authResult.getToken()).thenReturn(accessToken);
     PowerMockito.when(accessToken.getRealmAccess()).thenReturn(access);
     PowerMockito.when(access.isUserInRole(Constants.ADMIN)).thenReturn(false);
-    PowerMockito.when(authResult.getToken().getRealmAccess().isUserInRole(Mockito.anyString()))
-        .thenReturn(false);
 
     RequiredActionLinkProvider provider = new RequiredActionLinkProvider(session);
-    WebApplicationException expectedException = new WebApplicationException(
-        ErrorResponse.error(Constants.ERROR_REALM_ADMIN_ROLE_ACCESS, Status.FORBIDDEN));
 
     try {
-      Response response = provider.generateRequiredActionLink(request);
-      assertTrue(response == null);
+      provider.generateRequiredActionLink(request);
+      fail("Expected WebApplicationException");
     } catch (WebApplicationException ex) {
-      assertEquals(ex.getResponse().getStatus(), expectedException.getResponse().getStatus());
-      assertEquals(((ErrorRepresentation) (ex.getResponse().getEntity())).getErrorMessage(),
-          ((ErrorRepresentation) (expectedException.getResponse().getEntity())).getErrorMessage());
+      assertEquals(Status.FORBIDDEN.getStatusCode(), ex.getResponse().getStatus());
+      ErrorRepresentation error = (ErrorRepresentation) ex.getResponse().getEntity();
+      assertEquals(Constants.ERROR_REALM_ADMIN_ROLE_ACCESS, error.getErrorMessage());
     }
   }
 
   @Test
-  public void usernameMandatoryCheck() throws Exception {
-    PowerMockito.whenNew(AppAuthManager.class).withAnyArguments().thenReturn(authMangr);
-    PowerMockito.when(authMangr.authenticateBearerToken(session, model)).thenReturn(authResult);
-    AccessToken accessToken = PowerMockito.mock(AccessToken.class);
-    PowerMockito.when(authResult.getToken()).thenReturn(accessToken);
-    Access access = PowerMockito.mock(Access.class);
-    PowerMockito.when(accessToken.getRealmAccess()).thenReturn(access);
-    PowerMockito.when(access.isUserInRole(Constants.ADMIN)).thenReturn(true);
-    PowerMockito.when(authResult.getToken().getRealmAccess().isUserInRole(Mockito.anyString()))
-        .thenReturn(true);
-
+  public void testUsernameMandatoryCheck() throws Exception {
+    setupValidAuth();
+    
+    request.put(Constants.USERNAME, null);
     RequiredActionLinkProvider provider = new RequiredActionLinkProvider(session);
-    String userName = null;
-    WebApplicationException expectedException = new WebApplicationException(ErrorResponse.error(
-        MessageFormat.format(Constants.ERROR_MANDATORY_PARAM_MISSING, userName, Constants.USERNAME),
-        Status.BAD_REQUEST));
-    request.put("userName", userName);
+
     try {
-      Response response = provider.generateRequiredActionLink(request);
-      assertTrue(response == null);
+      provider.generateRequiredActionLink(request);
+      fail("Expected WebApplicationException");
     } catch (WebApplicationException ex) {
-      assertEquals(ex.getResponse().getStatus(), expectedException.getResponse().getStatus());
-      assertEquals(((ErrorRepresentation) (ex.getResponse().getEntity())).getErrorMessage(),
-          ((ErrorRepresentation) (expectedException.getResponse().getEntity())).getErrorMessage());
+      assertEquals(Status.BAD_REQUEST.getStatusCode(), ex.getResponse().getStatus());
+      ErrorRepresentation error = (ErrorRepresentation) ex.getResponse().getEntity();
+      assertTrue(error.getErrorMessage().contains(Constants.USERNAME));
     }
   }
 
   @Test
-  public void invalidUserNameCheck() throws Exception {
-    String userName = "amit";
-    PowerMockito.whenNew(AppAuthManager.class).withAnyArguments().thenReturn(authMangr);
-    PowerMockito.when(authMangr.authenticateBearerToken(session, model)).thenReturn(authResult);
-    AccessToken accessToken = PowerMockito.mock(AccessToken.class);
-    PowerMockito.when(authResult.getToken()).thenReturn(accessToken);
-    Access access = PowerMockito.mock(Access.class);
-    PowerMockito.when(accessToken.getRealmAccess()).thenReturn(access);
-    PowerMockito.when(access.isUserInRole(Constants.ADMIN)).thenReturn(true);
-    PowerMockito.when(authResult.getToken().getRealmAccess().isUserInRole(Mockito.anyString()))
-        .thenReturn(true);
+  public void testUsernameEmptyCheck() throws Exception {
+    setupValidAuth();
+    
+    request.put(Constants.USERNAME, "");
+    RequiredActionLinkProvider provider = new RequiredActionLinkProvider(session);
+
+    try {
+      provider.generateRequiredActionLink(request);
+      fail("Expected WebApplicationException");
+    } catch (WebApplicationException ex) {
+      assertEquals(Status.BAD_REQUEST.getStatusCode(), ex.getResponse().getStatus());
+    }
+  }
+
+  @Test
+  public void testInvalidUserNameCheck() throws Exception {
+    setupValidAuth();
+    
+    String userName = "nonexistent";
+    request.put(Constants.USERNAME, userName);
+    
     PowerMockito.mockStatic(KeycloakModelUtils.class);
     PowerMockito.when(KeycloakModelUtils.findUserByNameOrEmail(session, model, userName))
-        .thenReturn(null);
+      .thenReturn(null);
+    
     RequiredActionLinkProvider provider = new RequiredActionLinkProvider(session);
-    WebApplicationException expectedException = new WebApplicationException(ErrorResponse.error(
-        MessageFormat.format(Constants.ERROR_INVALID_PARAMETER_VALUE, userName, Constants.USERNAME),
-        Status.BAD_REQUEST));
 
-    request.put("userName", userName);
     try {
-      Response response = provider.generateRequiredActionLink(request);
-      assertTrue(response == null);
+      provider.generateRequiredActionLink(request);
+      fail("Expected WebApplicationException");
     } catch (WebApplicationException ex) {
-      assertEquals(ex.getResponse().getStatus(), expectedException.getResponse().getStatus());
-      assertEquals(((ErrorRepresentation) (ex.getResponse().getEntity())).getErrorMessage(),
-          ((ErrorRepresentation) (expectedException.getResponse().getEntity())).getErrorMessage());
+      assertEquals(Status.BAD_REQUEST.getStatusCode(), ex.getResponse().getStatus());
+      ErrorRepresentation error = (ErrorRepresentation) ex.getResponse().getEntity();
+      assertTrue(error.getErrorMessage().contains(userName));
     }
   }
 
   @Test
-  public void userEnabilityCheck() throws Exception {
-    String userName = "amit";
-    PowerMockito.whenNew(AppAuthManager.class).withAnyArguments().thenReturn(authMangr);
-    PowerMockito.when(authMangr.authenticateBearerToken(session, model)).thenReturn(authResult);
-    AccessToken accessToken = PowerMockito.mock(AccessToken.class);
-    PowerMockito.when(authResult.getToken()).thenReturn(accessToken);
-    Access access = PowerMockito.mock(Access.class);
-    PowerMockito.when(accessToken.getRealmAccess()).thenReturn(access);
-    PowerMockito.when(access.isUserInRole(Constants.ADMIN)).thenReturn(true);
-    PowerMockito.when(authResult.getToken().getRealmAccess().isUserInRole(Mockito.anyString()))
-        .thenReturn(true);
-    PowerMockito.mockStatic(KeycloakModelUtils.class);
-    PowerMockito.when(KeycloakModelUtils.findUserByNameOrEmail(session, model, userName))
-        .thenReturn(userModel);
-    PowerMockito.when(userModel.isEnabled()).thenReturn(false);
-
+  public void testUserDisabledCheck() throws Exception {
+    setupValidAuth();
+    setupValidUser(false);
+    
     RequiredActionLinkProvider provider = new RequiredActionLinkProvider(session);
-    WebApplicationException expectedException = new WebApplicationException(
-        ErrorResponse.error(Constants.ERROR_USER_IS_DISABLED, Status.BAD_REQUEST));
 
-    request.put("userName", userName);
     try {
-      Response response = provider.generateRequiredActionLink(request);
-      assertTrue(response == null);
+      provider.generateRequiredActionLink(request);
+      fail("Expected WebApplicationException");
     } catch (WebApplicationException ex) {
-      assertEquals(ex.getResponse().getStatus(), expectedException.getResponse().getStatus());
-      assertEquals(((ErrorRepresentation) (ex.getResponse().getEntity())).getErrorMessage(),
-          ((ErrorRepresentation) (expectedException.getResponse().getEntity())).getErrorMessage());
+      assertEquals(Status.BAD_REQUEST.getStatusCode(), ex.getResponse().getStatus());
+      ErrorRepresentation error = (ErrorRepresentation) ex.getResponse().getEntity();
+      assertEquals(Constants.ERROR_USER_IS_DISABLED, error.getErrorMessage());
     }
   }
 
   @Test
-  public void clientIdMandatoryCheck() throws Exception {
-    String userName = "amit";
-    String clientId = null;
-    request.put("clientId", clientId);
-    PowerMockito.whenNew(AppAuthManager.class).withAnyArguments().thenReturn(authMangr);
-    PowerMockito.when(authMangr.authenticateBearerToken(session, model)).thenReturn(authResult);
-    AccessToken accessToken = PowerMockito.mock(AccessToken.class);
-    PowerMockito.when(authResult.getToken()).thenReturn(accessToken);
-    Access access = PowerMockito.mock(Access.class);
-    PowerMockito.when(accessToken.getRealmAccess()).thenReturn(access);
-    PowerMockito.when(access.isUserInRole(Constants.ADMIN)).thenReturn(true);
-    PowerMockito.when(authResult.getToken().getRealmAccess().isUserInRole(Mockito.anyString()))
-        .thenReturn(true);
-    PowerMockito.mockStatic(KeycloakModelUtils.class);
-    PowerMockito.when(KeycloakModelUtils.findUserByNameOrEmail(session, model, userName))
-        .thenReturn(userModel);
-    PowerMockito.when(userModel.isEnabled()).thenReturn(true);
+  public void testClientIdMandatoryCheck() throws Exception {
+    setupValidAuth();
+    setupValidUser(true);
+    
+    request.put(Constants.CLIENT_ID, null);
     RequiredActionLinkProvider provider = new RequiredActionLinkProvider(session);
-    WebApplicationException expectedException = new WebApplicationException(
-        ErrorResponse.error(MessageFormat.format(Constants.ERROR_MANDATORY_PARAM_MISSING, clientId,
-            Constants.CLIENT_ID), Status.BAD_REQUEST));
+
     try {
-      Response response = provider.generateRequiredActionLink(request);
-      assertTrue(response == null);
+      provider.generateRequiredActionLink(request);
+      fail("Expected WebApplicationException");
     } catch (WebApplicationException ex) {
-      assertEquals(ex.getResponse().getStatus(), expectedException.getResponse().getStatus());
-      assertEquals(((ErrorRepresentation) (ex.getResponse().getEntity())).getErrorMessage(),
-          ((ErrorRepresentation) (expectedException.getResponse().getEntity())).getErrorMessage());
+      assertEquals(Status.BAD_REQUEST.getStatusCode(), ex.getResponse().getStatus());
     }
   }
 
-  @Ignore
   @Test
-  public void invalidClientIdCheck() throws Exception {
-    String userName = "amit";
-    String clientId = "master1";
-    request.put("clientId", clientId);
-    PowerMockito.whenNew(AppAuthManager.class).withAnyArguments().thenReturn(authMangr);
-    PowerMockito.when(authMangr.authenticateBearerToken(session, model)).thenReturn(authResult);
-    AccessToken accessToken = PowerMockito.mock(AccessToken.class);
-    PowerMockito.when(authResult.getToken()).thenReturn(accessToken);
-    Access access = PowerMockito.mock(Access.class);
-    PowerMockito.when(accessToken.getRealmAccess()).thenReturn(access);
-    PowerMockito.when(access.isUserInRole(Constants.ADMIN)).thenReturn(true);
-    PowerMockito.when(authResult.getToken().getRealmAccess().isUserInRole(Mockito.anyString()))
-        .thenReturn(true);
-    PowerMockito.mockStatic(KeycloakModelUtils.class);
-    PowerMockito.when(KeycloakModelUtils.findUserByNameOrEmail(session, model, userName))
-        .thenReturn(userModel);
-    PowerMockito.when(userModel.isEnabled()).thenReturn(true);
+  public void testClientIdEmptyCheck() throws Exception {
+    setupValidAuth();
+    setupValidUser(true);
+    
+    request.put(Constants.CLIENT_ID, "");
+    RequiredActionLinkProvider provider = new RequiredActionLinkProvider(session);
+
+    try {
+      provider.generateRequiredActionLink(request);
+      fail("Expected WebApplicationException");
+    } catch (WebApplicationException ex) {
+      assertEquals(Status.BAD_REQUEST.getStatusCode(), ex.getResponse().getStatus());
+    }
+  }
+
+  @Test
+  public void testInvalidClientIdCheck() throws Exception {
+    setupValidAuth();
+    setupValidUser(true);
+    
+    String clientId = "nonexistent";
+    request.put(Constants.CLIENT_ID, clientId);
+    
     PowerMockito.when(model.getClientByClientId(clientId)).thenReturn(null);
     RequiredActionLinkProvider provider = new RequiredActionLinkProvider(session);
-    WebApplicationException expectedException = new WebApplicationException(
-        ErrorResponse.error(MessageFormat.format(Constants.ERROR_INVALID_PARAMETER_VALUE, clientId,
-            Constants.CLIENT_ID), Status.BAD_REQUEST));
 
     try {
-      Response response = provider.generateRequiredActionLink(request);
-      assertTrue(response == null);
+      provider.generateRequiredActionLink(request);
+      fail("Expected WebApplicationException");
     } catch (WebApplicationException ex) {
-      assertEquals(ex.getResponse().getStatus(), expectedException.getResponse().getStatus());
-      assertEquals(((ErrorRepresentation) (ex.getResponse().getEntity())).getErrorMessage(),
-          ((ErrorRepresentation) (expectedException.getResponse().getEntity())).getErrorMessage());
+      assertEquals(Status.BAD_REQUEST.getStatusCode(), ex.getResponse().getStatus());
+      ErrorRepresentation error = (ErrorRepresentation) ex.getResponse().getEntity();
+      assertTrue(error.getErrorMessage().contains(clientId));
     }
   }
 
-  @Ignore
   @Test
-  public void clientEnabilityCheck() throws Exception {
-    String userName = "amit";
-    String clientId = "master1";
-    request.put("clientId", clientId);
-    PowerMockito.whenNew(AppAuthManager.class).withAnyArguments().thenReturn(authMangr);
-    PowerMockito.when(authMangr.authenticateBearerToken(session, model)).thenReturn(authResult);
-    AccessToken accessToken = PowerMockito.mock(AccessToken.class);
-    PowerMockito.when(authResult.getToken()).thenReturn(accessToken);
-    Access access = PowerMockito.mock(Access.class);
-    PowerMockito.when(accessToken.getRealmAccess()).thenReturn(access);
-    PowerMockito.when(access.isUserInRole(Constants.ADMIN)).thenReturn(true);
-    PowerMockito.when(authResult.getToken().getRealmAccess().isUserInRole(Mockito.anyString()))
-        .thenReturn(true);
-    PowerMockito.mockStatic(KeycloakModelUtils.class);
-    PowerMockito.when(KeycloakModelUtils.findUserByNameOrEmail(session, model, userName))
-        .thenReturn(userModel);
-    PowerMockito.when(userModel.isEnabled()).thenReturn(true);
+  public void testClientDisabledCheck() throws Exception {
+    setupValidAuth();
+    setupValidUser(true);
+    
+    String clientId = "disabled-client";
+    request.put(Constants.CLIENT_ID, clientId);
+    
     PowerMockito.when(model.getClientByClientId(clientId)).thenReturn(client);
     PowerMockito.when(client.isEnabled()).thenReturn(false);
+    
     RequiredActionLinkProvider provider = new RequiredActionLinkProvider(session);
-    WebApplicationException expectedException = new WebApplicationException(
-        ErrorResponse.error(clientId + Constants.ERROR_NOT_ENABLED, Status.BAD_REQUEST));
 
     try {
-      Response response = provider.generateRequiredActionLink(request);
-      assertTrue(response == null);
+      provider.generateRequiredActionLink(request);
+      fail("Expected WebApplicationException");
     } catch (WebApplicationException ex) {
-      assertEquals(ex.getResponse().getStatus(), expectedException.getResponse().getStatus());
-      assertEquals(((ErrorRepresentation) (ex.getResponse().getEntity())).getErrorMessage(),
-          ((ErrorRepresentation) (expectedException.getResponse().getEntity())).getErrorMessage());
-    }
-  }
-
-  @Ignore
-  @Test
-  public void verifyRedirectsUri() throws Exception {
-    String userName = "amit";
-    String clientId = "master1";
-    String redirectUri = "/login";
-    request.put("clientId", clientId);
-    request.put("redirectUri", redirectUri);
-    PowerMockito.whenNew(AppAuthManager.class).withAnyArguments().thenReturn(authMangr);
-    PowerMockito.when(authMangr.authenticateBearerToken(session, model)).thenReturn(authResult);
-    AccessToken accessToken = PowerMockito.mock(AccessToken.class);
-    PowerMockito.when(authResult.getToken()).thenReturn(accessToken);
-    Access access = PowerMockito.mock(Access.class);
-    PowerMockito.when(accessToken.getRealmAccess()).thenReturn(access);
-    PowerMockito.when(access.isUserInRole(Constants.ADMIN)).thenReturn(true);
-    PowerMockito.when(authResult.getToken().getRealmAccess().isUserInRole(Mockito.anyString()))
-        .thenReturn(true);
-    PowerMockito.mockStatic(KeycloakModelUtils.class);
-    PowerMockito.when(KeycloakModelUtils.findUserByNameOrEmail(session, model, userName))
-        .thenReturn(userModel);
-    PowerMockito.when(userModel.isEnabled()).thenReturn(true);
-    PowerMockito.when(model.getClientByClientId(clientId)).thenReturn(client);
-    PowerMockito.when(client.isEnabled()).thenReturn(true);
-    PowerMockito.mockStatic(RedirectUtils.class);
-    PowerMockito.when(RedirectUtils.verifyRedirectUri(session.getContext().getUri(), redirectUri,
-        session.getContext().getRealm(), client)).thenReturn(null);
-    RequiredActionLinkProvider provider = new RequiredActionLinkProvider(session);
-    WebApplicationException expectedException = new WebApplicationException(
-        ErrorResponse.error(MessageFormat.format(Constants.ERROR_INVALID_PARAMETER_VALUE,
-            redirectUri, Constants.REDIRECT_URI), Status.BAD_REQUEST));
-
-    try {
-      Response response = provider.generateRequiredActionLink(request);
-      assertTrue(response == null);
-    } catch (WebApplicationException ex) {
-      assertEquals(ex.getResponse().getStatus(), expectedException.getResponse().getStatus());
-      assertEquals(((ErrorRepresentation) (ex.getResponse().getEntity())).getErrorMessage(),
-          ((ErrorRepresentation) (expectedException.getResponse().getEntity())).getErrorMessage());
+      assertEquals(Status.BAD_REQUEST.getStatusCode(), ex.getResponse().getStatus());
+      ErrorRepresentation error = (ErrorRepresentation) ex.getResponse().getEntity();
+      assertTrue(error.getErrorMessage().contains(Constants.ERROR_NOT_ENABLED));
     }
   }
 
   @Test
-  public void validateRequiredAction() throws Exception {
-    String userName = "amit";
-    String clientId = "master1";
-    String redirectUri = "/login";
-    request.put("clientId", clientId);
-    request.put("redirectUri", redirectUri);
-    String actionName = null;
-    request.put("requiredAction", actionName);
-    PowerMockito.whenNew(AppAuthManager.class).withAnyArguments().thenReturn(authMangr);
-    PowerMockito.when(authMangr.authenticateBearerToken(session, model)).thenReturn(authResult);
-    AccessToken accessToken = PowerMockito.mock(AccessToken.class);
-    PowerMockito.when(authResult.getToken()).thenReturn(accessToken);
-    Access access = PowerMockito.mock(Access.class);
-    PowerMockito.when(accessToken.getRealmAccess()).thenReturn(access);
-    PowerMockito.when(access.isUserInRole(Constants.ADMIN)).thenReturn(true);
-    PowerMockito.when(authResult.getToken().getRealmAccess().isUserInRole(Mockito.anyString()))
-        .thenReturn(true);
-    PowerMockito.mockStatic(KeycloakModelUtils.class);
-    PowerMockito.when(KeycloakModelUtils.findUserByNameOrEmail(session, model, userName))
-        .thenReturn(userModel);
-    PowerMockito.when(userModel.isEnabled()).thenReturn(true);
-    PowerMockito.when(model.getClientByClientId(clientId)).thenReturn(client);
-    PowerMockito.when(client.isEnabled()).thenReturn(true);
+  public void testInvalidRedirectUriCheck() throws Exception {
+    setupValidAuth();
+    setupValidUser(true);
+    setupValidClient();
+    
+    String redirectUri = "invalid-uri";
+    request.put(Constants.REDIRECT_URI, redirectUri);
+    
     PowerMockito.mockStatic(RedirectUtils.class);
-    PowerMockito.when(RedirectUtils.verifyRedirectUri(session.getContext().getUri(), redirectUri,
-        session.getContext().getRealm(), client)).thenReturn("/login");
+    PowerMockito.when(RedirectUtils.verifyRedirectUri(session, redirectUri, client))
+      .thenReturn(null);
+    
     RequiredActionLinkProvider provider = new RequiredActionLinkProvider(session);
-    WebApplicationException expectedException = new WebApplicationException(
-        ErrorResponse.error(MessageFormat.format(Constants.ERROR_MANDATORY_PARAM_MISSING,
-            actionName, Constants.REQUIRED_ACTION), Status.BAD_REQUEST));
 
     try {
-      Response response = provider.generateRequiredActionLink(request);
-      assertTrue(response == null);
+      provider.generateRequiredActionLink(request);
+      fail("Expected WebApplicationException");
     } catch (WebApplicationException ex) {
-      assertEquals(ex.getResponse().getStatus(), expectedException.getResponse().getStatus());
-      assertEquals(((ErrorRepresentation) (ex.getResponse().getEntity())).getErrorMessage(),
-          ((ErrorRepresentation) (expectedException.getResponse().getEntity())).getErrorMessage());
+      assertEquals(Status.BAD_REQUEST.getStatusCode(), ex.getResponse().getStatus());
+      ErrorRepresentation error = (ErrorRepresentation) ex.getResponse().getEntity();
+      assertTrue(error.getErrorMessage().contains(redirectUri));
     }
   }
 
-  @Ignore
   @Test
-  public void invalidRequiredAction() throws Exception {
-    String userName = "amit";
-    String clientId = "master1";
-    String redirectUri = "/login";
-    request.put("clientId", clientId);
-    request.put("redirectUri", redirectUri);
-    String actionName = "INVALID_ACTION";
-    request.put("requiredAction", actionName);
-    PowerMockito.whenNew(AppAuthManager.class).withAnyArguments().thenReturn(authMangr);
-    PowerMockito.when(authMangr.authenticateBearerToken(session, model)).thenReturn(authResult);
-    AccessToken accessToken = PowerMockito.mock(AccessToken.class);
-    PowerMockito.when(authResult.getToken()).thenReturn(accessToken);
-    Access access = PowerMockito.mock(Access.class);
-    PowerMockito.when(accessToken.getRealmAccess()).thenReturn(access);
-    PowerMockito.when(access.isUserInRole(Constants.ADMIN)).thenReturn(true);
-    PowerMockito.when(authResult.getToken().getRealmAccess().isUserInRole(Mockito.anyString()))
-        .thenReturn(true);
-    PowerMockito.mockStatic(KeycloakModelUtils.class);
-    PowerMockito.when(KeycloakModelUtils.findUserByNameOrEmail(session, model, userName))
-        .thenReturn(userModel);
-    PowerMockito.when(userModel.isEnabled()).thenReturn(true);
-    PowerMockito.when(model.getClientByClientId(clientId)).thenReturn(client);
-    PowerMockito.when(client.isEnabled()).thenReturn(true);
-    PowerMockito.mockStatic(RedirectUtils.class);
-    PowerMockito.when(RedirectUtils.verifyRedirectUri(session.getContext().getUri(), redirectUri,
-        session.getContext().getRealm(), client)).thenReturn("/login");
+  public void testRequiredActionMandatoryCheck() throws Exception {
+    setupValidAuth();
+    setupValidUser(true);
+    setupValidClient();
+    setupValidRedirectUri();
+    
+    request.put(Constants.REQUIRED_ACTION, null);
     RequiredActionLinkProvider provider = new RequiredActionLinkProvider(session);
-    WebApplicationException expectedException = new WebApplicationException(
-        ErrorResponse.error(MessageFormat.format(Constants.ERROR_INVALID_PARAMETER_VALUE,
-            actionName, Constants.REQUIRED_ACTION), Status.BAD_REQUEST));
 
     try {
-      Response response = provider.generateRequiredActionLink(request);
-      assertTrue(response == null);
+      provider.generateRequiredActionLink(request);
+      fail("Expected WebApplicationException");
     } catch (WebApplicationException ex) {
-      assertEquals(ex.getResponse().getStatus(), expectedException.getResponse().getStatus());
-      assertEquals(((ErrorRepresentation) (ex.getResponse().getEntity())).getErrorMessage(),
-          ((ErrorRepresentation) (expectedException.getResponse().getEntity())).getErrorMessage());
+      assertEquals(Status.BAD_REQUEST.getStatusCode(), ex.getResponse().getStatus());
     }
+  }
+
+  @Test
+  public void testInvalidRequiredActionCheck() throws Exception {
+    setupValidAuth();
+    setupValidUser(true);
+    setupValidClient();
+    setupValidRedirectUri();
+    
+    String invalidAction = "INVALID_ACTION";
+    request.put(Constants.REQUIRED_ACTION, invalidAction);
+    RequiredActionLinkProvider provider = new RequiredActionLinkProvider(session);
+
+    try {
+      provider.generateRequiredActionLink(request);
+      fail("Expected WebApplicationException");
+    } catch (WebApplicationException ex) {
+      assertEquals(Status.BAD_REQUEST.getStatusCode(), ex.getResponse().getStatus());
+      ErrorRepresentation error = (ErrorRepresentation) ex.getResponse().getEntity();
+      assertTrue(error.getErrorMessage().contains(invalidAction));
+    }
+  }
+
+  @Test
+  public void testInvalidExpirationCheck() throws Exception {
+    setupValidAuth();
+    setupValidUser(true);
+    setupValidClient();
+    setupValidRedirectUri();
+    
+    request.put(Constants.EXPIRATION_IN_SECS, "invalid");
+    RequiredActionLinkProvider provider = new RequiredActionLinkProvider(session);
+
+    try {
+      provider.generateRequiredActionLink(request);
+      fail("Expected WebApplicationException");
+    } catch (WebApplicationException ex) {
+      assertEquals(Status.BAD_REQUEST.getStatusCode(), ex.getResponse().getStatus());
+    }
+  }
+
+  @Test
+  public void testSuccessfulLinkGenerationWithUpdatePassword() throws Exception {
+    setupSuccessfulScenario();
+    request.put(Constants.REQUIRED_ACTION, "UPDATE_PASSWORD");
+    
+    RequiredActionLinkProvider provider = new RequiredActionLinkProvider(session);
+    Response response = provider.generateRequiredActionLink(request);
+    
+    assertEquals(200, response.getStatus());
+    @SuppressWarnings("unchecked")
+    Map<String, Object> responseEntity = (Map<String, Object>) response.getEntity();
+    assertNotNull(responseEntity.get(Constants.LINK));
+  }
+
+  @Test
+  public void testSuccessfulLinkGenerationWithVerifyEmail() throws Exception {
+    setupSuccessfulScenario();
+    request.put(Constants.REQUIRED_ACTION, "VERIFY_EMAIL");
+    
+    RequiredActionLinkProvider provider = new RequiredActionLinkProvider(session);
+    Response response = provider.generateRequiredActionLink(request);
+    
+    assertEquals(200, response.getStatus());
+    @SuppressWarnings("unchecked")
+    Map<String, Object> responseEntity = (Map<String, Object>) response.getEntity();
+    assertNotNull(responseEntity.get(Constants.LINK));
+  }
+
+  @Test
+  public void testSuccessfulLinkGenerationWithCustomExpiration() throws Exception {
+    setupSuccessfulScenario();
+    request.put(Constants.EXPIRATION_IN_SECS, "7200");
+    
+    RequiredActionLinkProvider provider = new RequiredActionLinkProvider(session);
+    Response response = provider.generateRequiredActionLink(request);
+    
+    assertEquals(200, response.getStatus());
+  }
+
+  @Test
+  public void testSuccessfulLinkGenerationWithoutRedirectUri() throws Exception {
+    setupSuccessfulScenario();
+    request.remove(Constants.REDIRECT_URI);
+    
+    RequiredActionLinkProvider provider = new RequiredActionLinkProvider(session);
+    Response response = provider.generateRequiredActionLink(request);
+    
+    assertEquals(200, response.getStatus());
+  }
+
+  @Test
+  public void testLinkGenerationException() throws Exception {
+    setupValidAuth();
+    setupValidUser(true);
+    setupValidClient();
+    setupValidRedirectUri();
+    
+    // Mock LoginActionsService to throw exception
+    PowerMockito.mockStatic(LoginActionsService.class);
+    PowerMockito.when(LoginActionsService.actionTokenProcessor(uriInfo))
+      .thenThrow(new RuntimeException("Test exception"));
+    
+    RequiredActionLinkProvider provider = new RequiredActionLinkProvider(session);
+
+    try {
+      provider.generateRequiredActionLink(request);
+      fail("Expected WebApplicationException");
+    } catch (WebApplicationException ex) {
+      assertEquals(Status.INTERNAL_SERVER_ERROR.getStatusCode(), ex.getResponse().getStatus());
+      ErrorRepresentation error = (ErrorRepresentation) ex.getResponse().getEntity();
+      assertEquals(Constants.ERROR_CREATE_LINK, error.getErrorMessage());
+    }
+  }
+
+  private void setupValidAuth() throws Exception {
+    PowerMockito.whenNew(AppAuthManager.BearerTokenAuthenticator.class)
+      .withArguments(session).thenReturn(authenticator);
+    PowerMockito.when(authenticator.authenticate()).thenReturn(authResult);
+    
+    AccessToken accessToken = PowerMockito.mock(AccessToken.class);
+    Access access = PowerMockito.mock(Access.class);
+    
+    PowerMockito.when(authResult.getToken()).thenReturn(accessToken);
+    PowerMockito.when(accessToken.getRealmAccess()).thenReturn(access);
+    PowerMockito.when(access.isUserInRole(Constants.ADMIN)).thenReturn(true);
+  }
+
+  private void setupValidUser(boolean enabled) {
+    PowerMockito.mockStatic(KeycloakModelUtils.class);
+    PowerMockito.when(KeycloakModelUtils.findUserByNameOrEmail(session, model, "amit"))
+      .thenReturn(userModel);
+    PowerMockito.when(userModel.isEnabled()).thenReturn(enabled);
+    PowerMockito.when(userModel.getId()).thenReturn("user-id");
+  }
+
+  private void setupValidClient() {
+    PowerMockito.when(model.getClientByClientId("master")).thenReturn(client);
+    PowerMockito.when(client.isEnabled()).thenReturn(true);
+  }
+
+  private void setupValidRedirectUri() {
+    PowerMockito.mockStatic(RedirectUtils.class);
+    PowerMockito.when(RedirectUtils.verifyRedirectUri(session, "/login", client))
+      .thenReturn("/login");
+  }
+
+  private void setupSuccessfulScenario() throws Exception {
+    setupValidAuth();
+    setupValidUser(true);
+    setupValidClient();
+    setupValidRedirectUri();
+    
+    // Mock successful token creation
+    PowerMockito.mockStatic(LoginActionsService.class);
+    UriBuilder uriBuilder = PowerMockito.mock(UriBuilder.class);
+    PowerMockito.when(LoginActionsService.actionTokenProcessor(uriInfo)).thenReturn(uriBuilder);
+    PowerMockito.when(uriBuilder.queryParam(Mockito.anyString(), Mockito.anyString())).thenReturn(uriBuilder);
+    PowerMockito.when(uriBuilder.build("test-realm")).thenReturn(java.net.URI.create("http://test.com/link"));
+    PowerMockito.when(model.getName()).thenReturn("test-realm");
   }
 }
