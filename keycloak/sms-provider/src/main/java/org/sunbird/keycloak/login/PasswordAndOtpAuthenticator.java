@@ -56,6 +56,7 @@ import org.sunbird.sms.netcore.NetCoreSMSProvider;
 import org.sunbird.sms.nic.NicSmsProvider;
 
 import com.amazonaws.util.CollectionUtils;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticator {
 
@@ -73,6 +74,8 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 	@Override
 	public void authenticate(AuthenticationFlowContext context) {
 		String secretKey = context.getAuthenticationSession().getAuthNote(Constants.SECRET_KEY);
+		ObjectMapper mapper = new ObjectMapper();
+		logger.info("context : " + mapper.valueToTree(context).toString());
 		if (StringUtils.isBlank(secretKey)) {
 			// Generate the secret key
 			secretKey = generateSecretKey();
