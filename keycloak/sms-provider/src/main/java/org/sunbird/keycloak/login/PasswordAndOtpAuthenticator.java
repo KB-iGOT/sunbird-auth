@@ -24,6 +24,8 @@ import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
+import org.apache.commons.lang3.builder.ToStringStyle;
 import org.apache.http.HttpResponse;
 import org.jboss.logging.Logger;
 import org.keycloak.authentication.AuthenticationFlowContext;
@@ -74,8 +76,9 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 	@Override
 	public void authenticate(AuthenticationFlowContext context) {
 		String secretKey = context.getAuthenticationSession().getAuthNote(Constants.SECRET_KEY);
-		ObjectMapper mapper = new ObjectMapper();
-		logger.info("context : " + mapper.valueToTree(context).toString());
+		logger.info("incoming context : ");
+        logger.info(ReflectionToStringBuilder.toString(context, ToStringStyle.MULTI_LINE_STYLE));
+		logger.info("===== end context===");
 		if (StringUtils.isBlank(secretKey)) {
 			// Generate the secret key
 			secretKey = generateSecretKey();
