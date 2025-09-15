@@ -119,8 +119,10 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		if(context.getAuthenticationSession().getRedirectUri().contains(Constants.EC)){
 			logger.info("loading ec login page");
 			context.challenge(formsProvider.createForm(Constants.EC_LOGIN_PAGE));
+		}else{
+			logger.info("loading login page");
+		    context.challenge(formsProvider.createForm(Constants.LOGIN_PAGE));
 		}
-		context.challenge(formsProvider.createForm(Constants.LOGIN_PAGE));
 	}
 
 	@Override
