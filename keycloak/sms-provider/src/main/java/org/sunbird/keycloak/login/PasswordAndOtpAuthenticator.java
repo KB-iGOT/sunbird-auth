@@ -117,6 +117,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		LoginFormsProvider formsProvider = context.form();
 		formsProvider.setAttribute(Constants.SECRET_KEY, secretKey);
 		if(context.getAuthenticationSession().getRedirectUri().contains(Constants.EC)){
+			logger.info("loading ec login page");
 			context.challenge(formsProvider.createForm(Constants.EC_LOGIN_PAGE));
 		}
 		context.challenge(formsProvider.createForm(Constants.LOGIN_PAGE));
