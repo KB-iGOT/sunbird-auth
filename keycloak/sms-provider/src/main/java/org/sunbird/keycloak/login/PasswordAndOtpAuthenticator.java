@@ -76,10 +76,34 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 	@Override
 	public void authenticate(AuthenticationFlowContext context) {
 		String secretKey = context.getAuthenticationSession().getAuthNote(Constants.SECRET_KEY);
-		logger.info("incoming context : ");
-        logger.info(ReflectionToStringBuilder.toString(context, ToStringStyle.MULTI_LINE_STYLE));
-		logger.info("===== end context===");
-		if (StringUtils.isBlank(secretKey)) {
+        logger.info("=== Authentication Context Details ===");
+        logger.info("Authentication Session Info:");
+        logger.info("  Client ID: " + context.getAuthenticationSession().getClient().getClientId());
+        logger.info("  Redirect URI: " + context.getAuthenticationSession().getRedirectUri());
+        logger.info("  Action: " + context.getAuthenticationSession().getAction());
+
+        if (context.getUser() != null) {
+            logger.info("User Info:");
+            logger.info("  Username: " + context.getUser().getUsername());
+            logger.info("  User ID: " + context.getUser().getId());
+            logger.info("  Email: " + context.getUser().getEmail());
+        }
+
+        logger.info("HTTP Request Info:");
+        logger.info("  Request URI: " + context.getHttpRequest().getUri().getAbsolutePath());
+        logger.info("  HTTP Method: " + context.getHttpRequest().getHttpMethod());
+
+        logger.info("Realm Info:");
+        logger.info("  Realm Name: " + context.getRealm().getName());
+        logger.info("  Display Name: " + context.getRealm().getDisplayName());
+
+        if (context.getAuthenticatorConfig() != null) {
+            logger.info("Authenticator Config:");
+            logger.info("  Config Alias: " + context.getAuthenticatorConfig().getAlias());
+        }
+        logger.info("=====================================");
+
+        if (StringUtils.isBlank(secretKey)) {
 			// Generate the secret key
 			secretKey = generateSecretKey();
 			logger.info("Generated new secret key.");
