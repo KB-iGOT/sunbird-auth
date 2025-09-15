@@ -106,4 +106,6 @@ public class Constants {
 	public static final String ASYNC = "async";
 	public static final String SECRET_KEY = "secretKey";
 	public static final String IV = "iv";
+	public static final String EC = "/ec/";
+	public static final String EC_LOGIN_PAGE="eclogin.ftl";
 }
