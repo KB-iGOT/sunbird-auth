@@ -5,7 +5,6 @@
     <#elseif section = "header">
     <#elseif section = "form">
     <#if realm.password>
-    <div>Election Commission Login Page</div>
     <div class="custom-wrapper">
         <div class="custom-grid">
             <div class="ui raised shadow container segment fullpage-background-image left-box">
