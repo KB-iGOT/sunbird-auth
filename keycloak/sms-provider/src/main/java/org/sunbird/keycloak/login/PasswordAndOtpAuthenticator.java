@@ -73,7 +73,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 	@Override
 	public void authenticate(AuthenticationFlowContext context) {
 		String secretKey = context.getAuthenticationSession().getAuthNote(Constants.SECRET_KEY);
-		if (StringUtils.isBlank(secretKey)) {
+        if (StringUtils.isBlank(secretKey)) {
 			// Generate the secret key
 			secretKey = generateSecretKey();
 			logger.info("Generated new secret key.");
@@ -86,7 +86,13 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 
 		LoginFormsProvider formsProvider = context.form();
 		formsProvider.setAttribute(Constants.SECRET_KEY, secretKey);
-		context.challenge(formsProvider.createForm(Constants.LOGIN_PAGE));
+		if(context.getAuthenticationSession().getRedirectUri().contains(Constants.EC_LOGIN)){
+			logger.info("loading ec login page");
+			context.challenge(formsProvider.createForm(Constants.EC_LOGIN_PAGE));
+		}else{
+			logger.info("loading login page");
+		    context.challenge(formsProvider.createForm(Constants.LOGIN_PAGE));
+		}
 	}
 
 	@Override
