@@ -39,105 +39,134 @@ public class ResetCredentialChooseUserAuthenticator implements Authenticator {
   public static final String PROVIDER_ID = "spi-reset-credentials-choose-user";
 
 
-  @Override
-  public void authenticate(AuthenticationFlowContext context) {
+    @Override
+    public void authenticate(AuthenticationFlowContext context) {
 
-    String existingUserId =
-        context.getAuthenticationSession().getAuthNote(AbstractIdpAuthenticator.EXISTING_USER_INFO);
-    if (existingUserId != null) {
-      UserModel existingUser = AbstractIdpAuthenticator.getExistingUser(context.getSession(),
-          context.getRealm(), context.getAuthenticationSession());
+        logger.info("Starting authenticate() in ResetPassword flow");
 
-      logger.debugf(
-          "Forget-password triggered when reauthenticating user after first broker login. Skipping reset-credential-choose-user screen and using user '%s' ",
-          existingUser.getUsername());
-      context.setUser(existingUser);
-      context.success();
-      return;
+        String existingUserId =
+                context.getAuthenticationSession().getAuthNote(AbstractIdpAuthenticator.EXISTING_USER_INFO);
+        logger.info("Fetched existingUserId from authNote: %s", existingUserId);
+
+        if (existingUserId != null) {
+            UserModel existingUser = AbstractIdpAuthenticator.getExistingUser(
+                    context.getSession(),
+                    context.getRealm(),
+                    context.getAuthenticationSession()
+            );
+
+            logger.info("Reauthentication after first broker login. Using user: %s", existingUser.getUsername());
+            context.setUser(existingUser);
+            context.success();
+            logger.info("authenticate() completed with context.success() for existingUserId path");
+            return;
+        }
+
+        String actionTokenUserId =
+                context.getAuthenticationSession().getAuthNote(DefaultActionTokenKey.ACTION_TOKEN_USER_ID);
+        logger.info("Fetched actionTokenUserId from authNote: %s", actionTokenUserId);
+
+        if (actionTokenUserId != null) {
+            UserModel existingUser =
+                    context.getSession().users().getUserById(actionTokenUserId, context.getRealm());
+
+            logger.info("Reauthentication via action token. Using user: %s", existingUser.getUsername());
+            context.setUser(existingUser);
+            context.success();
+            logger.info("authenticate() completed with context.success() for actionTokenUserId path");
+            return;
+        }
+
+        logger.info("No existingUserId or actionTokenUserId found. Triggering password reset flow");
+        Response challenge = context.form().createPasswordReset();
+        context.challenge(challenge);
+        logger.info("authenticate() completed with context.challenge() for password reset");
     }
 
-    String actionTokenUserId =
-        context.getAuthenticationSession().getAuthNote(DefaultActionTokenKey.ACTION_TOKEN_USER_ID);
-    if (actionTokenUserId != null) {
-      UserModel existingUser =
-          context.getSession().users().getUserById(actionTokenUserId, context.getRealm());
 
-      // Action token logics handles checks for user ID validity and user being enabled
+    @Override
+    public void action(AuthenticationFlowContext context) {
+        logger.info("action() started in ResetPassword flow");
 
-      logger.debugf(
-          "Forget-password triggered when reauthenticating user after authentication via action token. Skipping reset-credential-choose-user screen and using user '%s' ",
-          existingUser.getUsername());
-      context.setUser(existingUser);
-      context.success();
-      return;
+        EventBuilder event = context.getEvent();
+        MultivaluedMap<String, String> formData = context.getHttpRequest().getDecodedFormParameters();
+        logger.infof("Decoded form parameters: %s", formData);
+
+        String username = formData.getFirst("username");
+        logger.infof("Extracted username: %s", username);
+
+        if (username == null || username.isEmpty()) {
+            logger.info("Username is missing in form data");
+            event.error(Errors.USERNAME_MISSING);
+            Response challenge = context.form().setError(Messages.MISSING_USERNAME).createPasswordReset();
+            logger.info("Created challenge for missing username");
+            context.failureChallenge(AuthenticationFlowError.INVALID_USER, challenge);
+            logger.info("Exiting action() with failureChallenge: USERNAME_MISSING");
+            return;
+        }
+
+        UserModel user = null;
+        try {
+            logger.infof("Looking up user by username/email/phone: %s", username);
+            user = SunbirdModelUtils.getUserByNameEmailOrPhone(context, username);
+
+            if (user == null) {
+                logger.infof("No user found for username: %s", username);
+                event.error(Messages.INVALID_USER);
+                Response challenge = context.form().setError(Errors.USER_NOT_FOUND).createPasswordReset();
+                logger.info("Created challenge for user not found");
+                context.failureChallenge(AuthenticationFlowError.INVALID_USER, challenge);
+                logger.info("Exiting action() with failureChallenge: USER_NOT_FOUND");
+                return;
+            }
+
+            logger.infof("User found: %s (enabled=%s)", user.getUsername(), user.isEnabled());
+        } catch (ModelDuplicateException mde) {
+            ServicesLogger.LOGGER.modelDuplicateException(mde);
+            logger.error("Duplicate user exception occurred", mde);
+
+            String errMsg = "";
+            if (mde.getDuplicateFieldName() != null
+                    && mde.getDuplicateFieldName().equals(UserModel.EMAIL)) {
+                errMsg = Constants.MULTIPLE_USER_ASSOCIATED_WITH_EMAIL;
+            } else if (mde.getDuplicateFieldName() != null
+                    && mde.getDuplicateFieldName().equals(UserModel.USERNAME)) {
+                errMsg = Constants.MULTIPLE_USER_ASSOCIATED_WITH_USERNAME;
+            } else if (mde.getDuplicateFieldName() != null
+                    && mde.getDuplicateFieldName().equals(KeycloakSmsAuthenticatorConstants.ATTR_MOBILE)) {
+                errMsg = Constants.MULTIPLE_USER_ASSOCIATED_WITH_PHONE;
+            }
+
+            logger.infof("Duplicate user conflict on field: %s", mde.getDuplicateFieldName());
+            event.error(Messages.INVALID_USER);
+            Response challenge = context.form().setError(errMsg).createPasswordReset();
+            logger.info("Created challenge for duplicate user conflict");
+            context.failureChallenge(AuthenticationFlowError.USER_CONFLICT, challenge);
+            logger.info("Exiting action() with failureChallenge: USER_CONFLICT");
+            return;
+        }
+
+        context.getAuthenticationSession()
+                .setAuthNote(AbstractUsernameFormAuthenticator.ATTEMPTED_USERNAME, username);
+        logger.infof("Stored attempted username in authentication session: %s", username);
+
+        if (user == null) {
+            logger.info("User is null after lookup — notifying as USER_NOT_FOUND");
+            event.clone().detail(Details.USERNAME, username).error(Errors.USER_NOT_FOUND);
+        } else if (!user.isEnabled()) {
+            logger.infof("User %s is disabled", username);
+            event.clone().detail(Details.USERNAME, username).user(user).error(Errors.USER_DISABLED);
+        } else {
+            logger.infof("Setting authenticated user: %s", username);
+            context.setUser(user);
+        }
+
+        context.success();
+        logger.info("action() completed successfully with context.success()");
     }
 
-    Response challenge = context.form().createPasswordReset();
-    context.challenge(challenge);
 
-  }
-
-  @Override
-  public void action(AuthenticationFlowContext context) {
-    EventBuilder event = context.getEvent();
-    MultivaluedMap<String, String> formData = context.getHttpRequest().getDecodedFormParameters();
-    String username = formData.getFirst("username");
-    if (username == null || username.isEmpty()) {
-      event.error(Errors.USERNAME_MISSING);
-      Response challenge = context.form().setError(Messages.MISSING_USERNAME).createPasswordReset();
-      context.failureChallenge(AuthenticationFlowError.INVALID_USER, challenge);
-      return;
-    }
-    UserModel user = null;
-    try {
-
-      user = SunbirdModelUtils.getUserByNameEmailOrPhone(context, username);
-    //user not found for provided username
-      if(user == null){
-        event.error(Messages.INVALID_USER);
-        Response challenge = context.form().setError(Errors.USER_NOT_FOUND).createPasswordReset();
-        context.failureChallenge(AuthenticationFlowError.INVALID_USER, challenge);
-        return;
-      }
-    } catch (ModelDuplicateException mde) {
-      ServicesLogger.LOGGER.modelDuplicateException(mde);
-
-      // Could happen during federation import
-      String errMsg = "";
-      if (mde.getDuplicateFieldName() != null
-          && mde.getDuplicateFieldName().equals(UserModel.EMAIL)) {
-        errMsg = Constants.MULTIPLE_USER_ASSOCIATED_WITH_EMAIL;
-      } else if (mde.getDuplicateFieldName() != null
-          && mde.getDuplicateFieldName().equals(UserModel.USERNAME)) {
-        errMsg = Constants.MULTIPLE_USER_ASSOCIATED_WITH_USERNAME;
-      } else if (mde.getDuplicateFieldName() != null
-          && mde.getDuplicateFieldName().equals(KeycloakSmsAuthenticatorConstants.ATTR_MOBILE)) {
-        errMsg = Constants.MULTIPLE_USER_ASSOCIATED_WITH_PHONE;
-      }
-      event.error(Messages.INVALID_USER);
-      Response challenge = context.form().setError(errMsg).createPasswordReset();
-      context.failureChallenge(AuthenticationFlowError.USER_CONFLICT, challenge);
-      return;
-    }
-    context.getAuthenticationSession()
-        .setAuthNote(AbstractUsernameFormAuthenticator.ATTEMPTED_USERNAME, username);
-
-    // we don't want people guessing usernames, so if there is a problem, just continue, but don't
-    // set the user
-    // a null user will notify further executions, that this was a failure.
-    if (user == null) {
-      event.clone().detail(Details.USERNAME, username).error(Errors.USER_NOT_FOUND);
-    } else if (!user.isEnabled()) {
-      event.clone().detail(Details.USERNAME, username).user(user).error(Errors.USER_DISABLED);
-    } else {
-      context.setUser(user);
-    }
-
-    context.success();
-
-  }
-
-  @Override
+    @Override
   public void close() {
     logger.debug("ResetCredentialChooseUserAuthenticator close called ... ");
   }

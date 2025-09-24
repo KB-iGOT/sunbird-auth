@@ -42,17 +42,25 @@ public class PhonePasswordForm extends AbstractPhoneFormAuthenticator implements
 
     @Override
     public void action(AuthenticationFlowContext context) {
-        logger.debug("PhonePasswordForm@action - called");
+        logger.info("PhonePasswordForm@action - started");
         MultivaluedMap<String, String> formData = context.getHttpRequest().getDecodedFormParameters();
+        logger.infof("Decoded form parameters: %s", formData);
         if (formData.containsKey("cancel")) {
+            logger.info("Cancel key found in formData → cancelling login");
             context.cancelLogin();
+            logger.info("PhonePasswordForm@action - exiting with cancelLogin()");
             return;
         }
+        logger.info("Validating form data...");
         if (!validateForm(context, formData)) {
+            logger.info("Form validation failed → exiting with result=false");
             return;
         }
+        logger.info("Form validation succeeded → marking authentication success");
         context.success();
+        logger.info("PhonePasswordForm@action - completed successfully");
     }
+
 
     protected boolean validateForm(AuthenticationFlowContext context, MultivaluedMap<String, String> formData) {
         logger.debug("PhonePasswordForm@validateForm - called");
@@ -61,22 +69,37 @@ public class PhonePasswordForm extends AbstractPhoneFormAuthenticator implements
 
     @Override
     public void authenticate(AuthenticationFlowContext context) {
+        logger.info("PhonePasswordForm@authenticate - started");
         MultivaluedMap<String, String> formData = new MultivaluedMapImpl<>();
-        String loginHint = context.getAuthenticationSession().getClientNote(OIDCLoginProtocol.LOGIN_HINT_PARAM);
-
-        String rememberMeUsername = AuthenticationManager.getRememberMeUsername(context.getRealm(), context.getHttpRequest().getHttpHeaders());
-
+        logger.info("Initialized empty formData");
+        String loginHint = context.getAuthenticationSession()
+                .getClientNote(OIDCLoginProtocol.LOGIN_HINT_PARAM);
+        logger.infof("Fetched loginHint from authentication session: %s", loginHint);
+        String rememberMeUsername = AuthenticationManager.getRememberMeUsername(
+                context.getRealm(),
+                context.getHttpRequest().getHttpHeaders()
+        );
+        logger.infof("Fetched rememberMeUsername from headers: %s", rememberMeUsername);
         if (loginHint != null || rememberMeUsername != null) {
+            logger.info("Either loginHint or rememberMeUsername is present");
+
             if (loginHint != null) {
                 formData.add(AuthenticationManager.FORM_USERNAME, loginHint);
+                logger.infof("Added loginHint '%s' into formData as FORM_USERNAME", loginHint);
             } else {
                 formData.add(AuthenticationManager.FORM_USERNAME, rememberMeUsername);
                 formData.add("rememberMe", "on");
+                logger.infof("Added rememberMeUsername '%s' into formData and set rememberMe=on", rememberMeUsername);
             }
+        } else {
+            logger.info("No loginHint or rememberMeUsername found → formData remains empty");
         }
         Response challengeResponse = challenge(context, formData);
+        logger.infof("Created challengeResponse with formData: %s", formData);
         context.challenge(challengeResponse);
+        logger.info("PhonePasswordForm@authenticate - issued challenge and exiting");
     }
+
 
     @Override
     public boolean requiresUser() {
