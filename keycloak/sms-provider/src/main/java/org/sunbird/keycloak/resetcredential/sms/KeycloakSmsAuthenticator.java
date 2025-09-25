@@ -53,23 +53,30 @@ public class KeycloakSmsAuthenticator implements Authenticator {
 
         if (mobileNumberCreds != null && !mobileNumberCreds.isEmpty()) {
             mobileNumber = mobileNumberCreds.get(0);
+            logger.info("KeycloakSmsAuthenticator@authenticate - MobileNumber = " + mobileNumber);
         }
 
         if (StringUtils.isNotBlank(mobileNumber) || StringUtils.isNotBlank(userEmail)) {
           Map<String, Object> otpResponse = generateOTP(context);
+          logger.info("KeycloakSmsAuthenticator@authenticate - Generated OTP Response = " + otpResponse);
 
           String useSms = System.getenv(Constants.SEND_OTP_VIA_SMS);
           if(StringUtils.isNotBlank(useSms) && "true".equalsIgnoreCase(useSms)) {
+              logger.info("KeycloakSmsAuthenticator@authenticate - Sending OTP via SMS");
             if (StringUtils.isNotBlank(mobileNumber)) {
+                logger.info("KeycloakSmsAuthenticator@authenticate - Mobile number is present, sending SMS");
               sendSMS(otpResponse, context, mobileNumber);
             }
           }
           if (StringUtils.isNotBlank(userEmail)) {
+              logger.info("KeycloakSmsAuthenticator@authenticate - Sending OTP via Email");
             if(userEmail.contains("*")) {
         		  try {
+                      logger.info("KeycloakSmsAuthenticator@authenticate - User email is masked, trying to get username from httpRequest");
 	        		  MultivaluedMap<String, String> formData = context.getHttpRequest().getDecodedFormParameters();
 	        		  String username = formData.getFirst("username");
 	        		  if(StringUtils.isNotBlank(username)) {
+                          logger.info("KeycloakSmsAuthenticator@authenticate - Successfully got username from context.httpRequest: " + username);
 	        			  userEmail = username;
 	        			  StringBuilder str = new StringBuilder("KeycloakSmsAuthenticator@authenticate - ");
 	        			  str.append("context.user.userEmail: ").append(user.getEmail());
@@ -92,13 +99,16 @@ public class KeycloakSmsAuthenticator implements Authenticator {
               .createForm("sms-validation-error.ftl");
           context.failureChallenge(AuthenticationFlowError.CLIENT_CREDENTIALS_SETUP_REQUIRED,
               challenge);
+          logger.info("KeycloakSmsAuthenticator@authenticate - Missing mobile number and email!");
         }
     }
 
     private Map<String, Object> generateOTP(AuthenticationFlowContext context) {
+        logger.info("KeycloakSmsAuthenticator@generateOTP called ... context = " + context);
       // The mobile number is configured --> send an SMS
       long nrOfDigits = KeycloakSmsAuthenticatorUtil.getConfigLong(context.getAuthenticatorConfig(),
           KeycloakSmsAuthenticatorConstants.CONF_PRP_SMS_CODE_LENGTH, 8L);
+      logger.info("Using nrOfDigits " + nrOfDigits);
       logger.debug("Using nrOfDigits " + nrOfDigits);
 
       logger.debug("KeycloakSmsAuthenticator@sendSMS");
@@ -108,6 +118,7 @@ public class KeycloakSmsAuthenticator implements Authenticator {
 
       logger.debug("Using ttl " + ttl + " (s)");
       String code = KeycloakSmsAuthenticatorUtil.getSmsCode(nrOfDigits);
+      logger.info("Generated code " + code);
       storeSMSCode(context, code, new Date().getTime() + (ttl * 1000)); // s --> ms
       Map<String, Object> response = new HashMap<>();
       response.put(Constants.OTP, code);
@@ -117,12 +128,15 @@ public class KeycloakSmsAuthenticator implements Authenticator {
     
     private void sendSMS(Map<String, Object> otpResponse, AuthenticationFlowContext context,
         String mobileNumber) {
+        logger.info("KeycloakSmsAuthenticator@sendSMS - Sending SMS to " + mobileNumber);
       logger.debug("KeycloakSmsAuthenticator@sendSMS - Sending SMS");
 
         if (KeycloakSmsAuthenticatorUtil.sendSmsCode(mobileNumber,
           (String) otpResponse.get(Constants.OTP), context.getAuthenticatorConfig())) {
+            logger.info("KeycloakSmsAuthenticator@sendSMS - SMS sent successfully to " + mobileNumber);
         navigateToEnterOTPPage(context, true);
       } else {
+            logger.info("KeycloakSmsAuthenticator@sendSMS - Failed to send SMS to " + mobileNumber);
         navigateToEnterOTPPage(context, false);
       }
     }
@@ -130,6 +144,7 @@ public class KeycloakSmsAuthenticator implements Authenticator {
     private void sendEmailViaSunbird(Map<String, Object> otpResponse,
         AuthenticationFlowContext context, String userEmail) {
       logger.debug("KeycloakSmsAuthenticator@sendEmailViaSunbird - Sending Email via Sunbird API");
+      logger.info("KeycloakSmsAuthenticator@sendEmailViaSunbird - Sending Email to " + userEmail);
 
       List<String> emails = new ArrayList<>(Arrays.asList(userEmail));
 
@@ -145,20 +160,27 @@ public class KeycloakSmsAuthenticator implements Authenticator {
       HttpResponse response = HttpClient.post(request,
           (System.getenv(Constants.SUNBIRD_LMS_BASE_URL) + Constants.SEND_NOTIFICATION_URI),
           System.getenv(Constants.SUNBIRD_LMS_AUTHORIZATION));
+      logger.info("KeycloakSmsAuthenticator@sendEmailViaSunbird - Email API Response Status = "
+          + response.getStatusLine().getStatusCode());
 
       int statusCode = response.getStatusLine().getStatusCode();
       if (statusCode == 200) {
+          logger.info("KeycloakSmsAuthenticator@sendEmailViaSunbird - Email sent successfully to " + userEmail);
         navigateToEnterOTPPage(context, true);
       } else {
+          logger.info("KeycloakSmsAuthenticator@sendEmailViaSunbird - Failed to send Email to " + userEmail);
         navigateToEnterOTPPage(context, false);
       }
     }
 
     private void navigateToEnterOTPPage(AuthenticationFlowContext context, Boolean flag) {
+        logger.info("KeycloakSmsAuthenticator@navigateToEnterOTPPage called ... context = " + context + ", flag = " + flag);
       if (flag) {
+          logger.info("KeycloakSmsAuthenticator@navigateToEnterOTPPage - Navigating to OTP entry page");
         Response challenge = context.form().createForm("sms-validation.ftl");
         context.challenge(challenge);
       } else {
+          logger.info("KeycloakSmsAuthenticator@navigateToEnterOTPPage - Failed to send OTP, showing error page");
         Response challenge =
             context.form().setError("OTP could not be sent.").createForm("sms-validation-error.ftl");
         context.failureChallenge(AuthenticationFlowError.INTERNAL_ERROR, challenge);
@@ -167,12 +189,14 @@ public class KeycloakSmsAuthenticator implements Authenticator {
     
     @Override
     public void action(AuthenticationFlowContext context) {
+        logger.info("KeycloakSmsAuthenticator@action called ... context = " + context);
         logger.debug("action called ... context = " + context);
         logger.debug("KeycloakSmsAuthenticator@action called ... for User = " + context.getUser().getUsername());
         CODE_STATUS status = validateCode(context);
         Response challenge = null;
         switch (status) {
             case EXPIRED:
+                logger.info("KeycloakSmsAuthenticator@action - Code is expired");
                 logger.debug("KeycloakSmsAuthenticator@action - EXPIRED");
                 challenge = context.form()
                         .setError("code is expired")
@@ -181,20 +205,24 @@ public class KeycloakSmsAuthenticator implements Authenticator {
                 break;
 
             case INVALID:
+                logger.info("KeycloakSmsAuthenticator@action - Code is invalid");
                 logger.debug("KeycloakSmsAuthenticator@action - INVALID");
                 if (context.getExecution().getRequirement() == AuthenticationExecutionModel.Requirement.OPTIONAL ||
                         context.getExecution().getRequirement() == AuthenticationExecutionModel.Requirement.ALTERNATIVE) {
+                    logger.info("KeycloakSmsAuthenticator@action - OPTIONAL || ALTERNATIVE - calling context.attempted()");
                     logger.debug("KeycloakSmsAuthenticator@action - OPTIONAL || ALTERNATIVE");
                     logger.debug("Calling context.attempted()");
                     context.attempted();
                 } else if (context.getExecution().getRequirement() == AuthenticationExecutionModel.Requirement.REQUIRED) {
                     logger.debug("KeycloakSmsAuthenticator@action - INVALID_CREDENTIALS");
+                    logger.info("KeycloakSmsAuthenticator@action - REQUIRED - calling context.failureChallenge()");
 
                     challenge = context.form()
                             .setError("Invalid code specified, please enter it again")
                             .createForm("sms-validation.ftl");
                     context.failureChallenge(AuthenticationFlowError.INVALID_CREDENTIALS, challenge);
                 } else {
+                    logger.info("KeycloakSmsAuthenticator@action - Something strange happened ...");
                     // Something strange happened
                     logger.warn("Undefined execution ...");
                     logger.debug("KeycloakSmsAuthenticator@action - SOMETHING STRANGE HAPPENED!");
@@ -218,6 +246,7 @@ public class KeycloakSmsAuthenticator implements Authenticator {
     // Store the code + expiration time in a UserCredential. Keycloak will persist these in the DB.
     // When the code is validated on another node (in a clustered environment) the other nodes have access to it's values too.
     private void storeSMSCode(AuthenticationFlowContext context, String code, Long expiringAt) {
+        logger.info("KeycloakSmsAuthenticator@storeSMSCode called ... context = " + context + ", code = " + code + ", expiringAt = " + expiringAt);
         logger.debug("KeycloakSmsAuthenticator@storeSMSCode called");
 
         UserCredentialModel credentials = new UserCredentialModel();
@@ -229,9 +258,11 @@ public class KeycloakSmsAuthenticator implements Authenticator {
         credentials.setType(KeycloakSmsAuthenticatorConstants.USR_CRED_MDL_SMS_EXP_TIME);
         credentials.setValue((expiringAt).toString());
         context.getSession().userCredentialManager().updateCredential(context.getRealm(), context.getUser(), credentials);
+        logger.info("KeycloakSmsAuthenticator@storeSMSCode - Stored SMS code and expiration time for user " + context.getUser().getUsername());
     }
 
     protected CODE_STATUS validateCode(AuthenticationFlowContext context) {
+        logger.info("KeycloakSmsAuthenticator@validateCode called ... context = " + context);
         logger.debug("KeycloakSmsAuthenticator@validateCode called");
         CODE_STATUS result = CODE_STATUS.INVALID;
 
@@ -244,11 +275,13 @@ public class KeycloakSmsAuthenticator implements Authenticator {
 
         CredentialModel expectedCode = (CredentialModel) codeCreds.get(0);
         /*CredentialModel expTimeString = (CredentialModel) timeCreds.get(0);*/
+        logger.info("KeycloakSmsAuthenticator@validateCode - Entered code = " + enteredCode);
 
         logger.debug("KeycloakSmsAuthenticator@validateCode " + "User name = " + context.getUser().getUsername());
         logger.debug("KeycloakSmsAuthenticator@validateCode " + "Expected code = " + expectedCode.getValue() + " entered code = " + enteredCode);
 
         if (expectedCode != null) {
+            logger.info("KeycloakSmsAuthenticator@validateCode - Expected code found");
             result = enteredCode.equals(expectedCode.getValue()) ? CODE_STATUS.VALID : CODE_STATUS.INVALID;
         }
         logger.debug("result : " + result);
@@ -259,23 +292,27 @@ public class KeycloakSmsAuthenticator implements Authenticator {
 
     @Override
     public boolean requiresUser() {
+        logger.info("KeycloakSmsAuthenticator@requiresUser called ... returning true");
         logger.debug("requiresUser called ... returning true");
         return true;
     }
 
     @Override
     public boolean configuredFor(KeycloakSession session, RealmModel realm, UserModel user) {
+        logger.info("KeycloakSmsAuthenticator@configuredFor called ... session=" + session + ", realm=" + realm + ", user=" + user);
         logger.debug("KeycloakSmsAuthenticator@validateCode configuredFor called ... session=" + session + ", realm=" + realm + ", user=" + user);
         return true;
     }
 
     @Override
     public void setRequiredActions(KeycloakSession session, RealmModel realm, UserModel user) {
+        logger.info("KeycloakSmsAuthenticator@setRequiredActions called ... session=" + session + ", realm=" + realm + ", user=" + user);
         logger.debug("KeycloakSmsAuthenticator@validateCode - setRequiredActions called ... session=" + session + ", realm=" + realm + ", user=" + user);
     }
 
     @Override
     public void close() {
+        logger.info("KeycloakSmsAuthenticator@close called ...");
         logger.debug("close called ...");
     }
 

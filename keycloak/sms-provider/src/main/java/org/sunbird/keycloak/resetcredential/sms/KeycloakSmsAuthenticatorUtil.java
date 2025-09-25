@@ -32,14 +32,17 @@ public class KeycloakSmsAuthenticatorUtil {
     }
 
     public static String getConfigString(AuthenticatorConfigModel config, String configName) {
+        logger.info("KeycloakSmsAuthenticatorUtil@getConfigString: configName = " + configName);
         return getConfigString(config, configName, null);
     }
 
     public static String getConfigString(AuthenticatorConfigModel config, String configName, String defaultValue) {
+        logger.info("KeycloakSmsAuthenticatorUtil@getConfigString: configName = " + configName + ", defaultValue = " + defaultValue);
 
         String value = defaultValue;
 
         if (config.getConfig() != null) {
+            logger.info("KeycloakSmsAuthenticatorUtil@getConfigString: config.getConfig() is not null");
             // Get value
             value = config.getConfig().get(configName);
         }
@@ -52,13 +55,16 @@ public class KeycloakSmsAuthenticatorUtil {
     }
 
     public static Long getConfigLong(AuthenticatorConfigModel config, String configName, Long defaultValue) {
+        logger.info("KeycloakSmsAuthenticatorUtil@getConfigLong: configName = " + configName + ", defaultValue = " + defaultValue);
 
         Long value = defaultValue;
 
         if (config.getConfig() != null) {
+            logger.info("KeycloakSmsAuthenticatorUtil@getConfigLong: config.getConfig() is not null");
             // Get value
             Object obj = config.getConfig().get(configName);
             try {
+                logger.info("KeycloakSmsAuthenticatorUtil@getConfigLong: obj = " + obj);
                 value = Long.valueOf((String) obj); // s --> ms
             } catch (NumberFormatException nfe) {
                 logger.error("Can not convert " + obj + " to a number.");
@@ -69,10 +75,12 @@ public class KeycloakSmsAuthenticatorUtil {
     }
 
     public static String createMessage(String code, String mobileNumber, AuthenticatorConfigModel config) {
+        logger.info("KeycloakSmsAuthenticatorUtil@createMessage : code - " + code + ", mobileNumber - " + mobileNumber);
         String text = KeycloakSmsAuthenticatorUtil.getConfigString(config, KeycloakSmsAuthenticatorConstants.CONF_PRP_SMS_TEXT);
         logger.debug("KeycloakSmsAuthenticatorUtil@createMessage : templateText - " + text);
         text = text.replaceAll("%sms-code%", code);
         text = text.replaceAll("%phonenumber%", mobileNumber);
+        logger.info("KeycloakSmsAuthenticatorUtil@createMessage : text - " + text);
 
         return text;
     }
@@ -90,13 +98,16 @@ public class KeycloakSmsAuthenticatorUtil {
     }
 
     static boolean sendSmsCode(String mobileNumber, String code, AuthenticatorConfigModel config) {
+        logger.info("KeycloakSmsAuthenticatorUtil@sendSmsCode : mobileNumber - " + mobileNumber + ", code - " + code);
         String smsText = createMessage(code, mobileNumber, config);
         logger.debug("KeycloakSmsAuthenticatorUtil@sendSmsCode : smsText - " + smsText);
+        logger.info("KeycloakSmsAuthenticatorUtil@sendSmsCode : Sending SMS to " + mobileNumber + " with text: " + smsText);
 
         return send(mobileNumber, smsText);
     }
 
     public static boolean send(String mobileNumber, String code) {
+        logger.info("KeycloakSmsAuthenticatorUtil@send : mobileNumber - " + mobileNumber + ", code - " + code);
         String filePath = new File(KeycloakSmsAuthenticatorConstants.MSG91_SMS_PROVIDER_CONFIGURATIONS_PATH).getAbsolutePath();
         logger.debug("KeycloakSmsAuthenticatorUtil@sendSmsCode : filePath - " + filePath);
 
@@ -116,6 +127,7 @@ public class KeycloakSmsAuthenticatorUtil {
     }
 
     public static String getSmsCode(long nrOfDigits) {
+        logger.info("KeycloakSmsAuthenticatorUtil@getSmsCode: nrOfDigits = " + nrOfDigits);
         if (nrOfDigits < 1) {
             throw new RuntimeException("Number of digits must be bigger than 0");
         }
@@ -123,6 +135,7 @@ public class KeycloakSmsAuthenticatorUtil {
         long minValue = (long) Math.pow(10.0, (nrOfDigits - 1));
         long maxValue = (long) Math.pow(10.0, nrOfDigits); // 10 ^ nrOfDigits;
         long code = ThreadLocalRandom.current().nextLong(minValue, maxValue);
+        logger.info("KeycloakSmsAuthenticatorUtil@getSmsCode: code = " + code);
         return Long.toString(code);
     }
 

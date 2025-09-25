@@ -41,6 +41,7 @@ public class ResetCredentialChooseUserAuthenticator implements Authenticator {
 
   @Override
   public void authenticate(AuthenticationFlowContext context) {
+      logger.info("ResetCredentialChooseUserAuthenticator:authenticate called");
 
     String existingUserId =
         context.getAuthenticationSession().getAuthNote(AbstractIdpAuthenticator.EXISTING_USER_INFO);
@@ -53,12 +54,14 @@ public class ResetCredentialChooseUserAuthenticator implements Authenticator {
           existingUser.getUsername());
       context.setUser(existingUser);
       context.success();
+      logger.info("ResetCredentialChooseUserAuthenticator:authenticate completed successfully");
       return;
     }
 
     String actionTokenUserId =
         context.getAuthenticationSession().getAuthNote(DefaultActionTokenKey.ACTION_TOKEN_USER_ID);
     if (actionTokenUserId != null) {
+        logger.info("ResetCredentialChooseUserAuthenticator:authenticate actionTokenUserId not null");
       UserModel existingUser =
           context.getSession().users().getUserById(actionTokenUserId, context.getRealm());
 
@@ -71,6 +74,7 @@ public class ResetCredentialChooseUserAuthenticator implements Authenticator {
       context.success();
       return;
     }
+    logger.info("ResetCredentialChooseUserAuthenticator:authenticate actionTokenUserId is null, show form");
 
     Response challenge = context.form().createPasswordReset();
     context.challenge(challenge);
@@ -79,10 +83,13 @@ public class ResetCredentialChooseUserAuthenticator implements Authenticator {
 
   @Override
   public void action(AuthenticationFlowContext context) {
+        logger.info("ResetCredentialChooseUserAuthenticator:action called");
     EventBuilder event = context.getEvent();
     MultivaluedMap<String, String> formData = context.getHttpRequest().getDecodedFormParameters();
     String username = formData.getFirst("username");
+    logger.info("ResetCredentialChooseUserAuthenticator:action username from form data: " + username);
     if (username == null || username.isEmpty()) {
+        logger.info("ResetCredentialChooseUserAuthenticator:action username is null or empty");
       event.error(Errors.USERNAME_MISSING);
       Response challenge = context.form().setError(Messages.MISSING_USERNAME).createPasswordReset();
       context.failureChallenge(AuthenticationFlowError.INVALID_USER, challenge);
@@ -92,31 +99,38 @@ public class ResetCredentialChooseUserAuthenticator implements Authenticator {
     try {
 
       user = SunbirdModelUtils.getUserByNameEmailOrPhone(context, username);
+      logger.info("ResetCredentialChooseUserAuthenticator:action user found: " + (user != null ? user.getUsername() : "null"));
     //user not found for provided username
       if(user == null){
+          logger.info("ResetCredentialChooseUserAuthenticator:action user not found for username: " + username);
         event.error(Messages.INVALID_USER);
         Response challenge = context.form().setError(Errors.USER_NOT_FOUND).createPasswordReset();
         context.failureChallenge(AuthenticationFlowError.INVALID_USER, challenge);
         return;
       }
     } catch (ModelDuplicateException mde) {
+        logger.info("ResetCredentialChooseUserAuthenticator:action ModelDuplicateException caught");
       ServicesLogger.LOGGER.modelDuplicateException(mde);
 
       // Could happen during federation import
       String errMsg = "";
       if (mde.getDuplicateFieldName() != null
           && mde.getDuplicateFieldName().equals(UserModel.EMAIL)) {
+          logger.info("ResetCredentialChooseUserAuthenticator:action duplicate field is email");
         errMsg = Constants.MULTIPLE_USER_ASSOCIATED_WITH_EMAIL;
       } else if (mde.getDuplicateFieldName() != null
           && mde.getDuplicateFieldName().equals(UserModel.USERNAME)) {
+          logger.info("ResetCredentialChooseUserAuthenticator:action duplicate field is username");
         errMsg = Constants.MULTIPLE_USER_ASSOCIATED_WITH_USERNAME;
       } else if (mde.getDuplicateFieldName() != null
           && mde.getDuplicateFieldName().equals(KeycloakSmsAuthenticatorConstants.ATTR_MOBILE)) {
+          logger.info("ResetCredentialChooseUserAuthenticator:action duplicate field is phone");
         errMsg = Constants.MULTIPLE_USER_ASSOCIATED_WITH_PHONE;
       }
       event.error(Messages.INVALID_USER);
       Response challenge = context.form().setError(errMsg).createPasswordReset();
       context.failureChallenge(AuthenticationFlowError.USER_CONFLICT, challenge);
+      logger.info("ResetCredentialChooseUserAuthenticator:action completed with failure due to duplicate user");
       return;
     }
     context.getAuthenticationSession()
@@ -126,10 +140,13 @@ public class ResetCredentialChooseUserAuthenticator implements Authenticator {
     // set the user
     // a null user will notify further executions, that this was a failure.
     if (user == null) {
+        logger.info("ResetCredentialChooseUserAuthenticator:action user is null after lookup");
       event.clone().detail(Details.USERNAME, username).error(Errors.USER_NOT_FOUND);
     } else if (!user.isEnabled()) {
+        logger.info("ResetCredentialChooseUserAuthenticator:action user is disabled");
       event.clone().detail(Details.USERNAME, username).user(user).error(Errors.USER_DISABLED);
     } else {
+        logger.info("ResetCredentialChooseUserAuthenticator:action user is valid and enabled, setting user in context");
       context.setUser(user);
     }
 
@@ -154,6 +171,7 @@ public class ResetCredentialChooseUserAuthenticator implements Authenticator {
 
   @Override
   public void setRequiredActions(KeycloakSession session, RealmModel realm, UserModel user) {
+      logger.info("ResetCredentialChooseUserAuthenticator:setRequiredActions called");
     logger.debug("ResetCredentialChooseUserAuthenticator setRequiredActions called ... ");
   }
 

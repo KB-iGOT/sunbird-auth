@@ -18,6 +18,7 @@ public class KeycloakSmsAuthenticatorCredentialProviderFactory implements Creden
 
     @Override
     public CredentialProvider create(KeycloakSession session) {
+        logger.info("KeycloakSmsAuthenticatorCredentialProviderFactory -  create");
         logger.debug("KeycloakSmsAuthenticatorCredentialProviderFactory -  create");
         return new KeycloakSmsAuthenticatorCredentialProvider(session);
     }
