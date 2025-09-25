@@ -43,22 +43,26 @@ public class PhonePasswordFormFactory implements AuthenticatorFactory {
 
     @Override
     public Authenticator create(KeycloakSession session) {
+        logger.info("PhonePasswordFormFactory@create - PhonePasswordFormFactory is created");
         logger.debug("PhonePasswordFormFactory@create - PhonePasswordFormFactory is created");
         return SINGLETON;
     }
 
     @Override
     public void init(Config.Scope config) {
+        logger.info("PhonePasswordFormFactory@init - called");
 
     }
 
     @Override
     public void postInit(KeycloakSessionFactory factory) {
+        logger.info("PhonePasswordFormFactory@postInit - called");
 
     }
 
     @Override
     public void close() {
+        logger.info("PhonePasswordFormFactory@close - called");
 
     }
 
@@ -69,6 +73,7 @@ public class PhonePasswordFormFactory implements AuthenticatorFactory {
 
     @Override
     public String getReferenceCategory() {
+        logger.info("PhonePasswordFormFactory@getReferenceCategory - called");
         return UserCredentialModel.PASSWORD;
     }
 

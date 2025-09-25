@@ -40,9 +40,11 @@ public abstract class AbstractPhoneFormAuthenticator extends AbstractUsernameFor
   public boolean validateUserAndPassword(AuthenticationFlowContext context,
       MultivaluedMap<String, String> inputData) {
     String username = inputData.getFirst(AuthenticationManager.FORM_USERNAME);
+    logger.info("AbstractPhoneFormAuthenticator@validateUserAndPassword - Username -" + username);
     logger.debug("AbstractPhoneFormAuthenticator@validateUserAndPassword - Username -" + username);
 
     if (username == null) {
+        logger.info("Username is null");
       context.getEvent().error(Errors.USER_NOT_FOUND);
       Response challengeResponse = challenge(context, Messages.INVALID_USER);
       context.failureChallenge(AuthenticationFlowError.INVALID_USER, challengeResponse);
@@ -51,6 +53,8 @@ public abstract class AbstractPhoneFormAuthenticator extends AbstractUsernameFor
 
     // remove leading and trailing whitespace
     username = username.trim();
+    logger.info("AbstractPhoneFormAuthenticator@validateUserAndPassword - Trimmed Username -"
+        + username);
 
     context.getEvent().detail(Details.USERNAME, username);
     context.getAuthenticationSession()
@@ -60,21 +64,31 @@ public abstract class AbstractPhoneFormAuthenticator extends AbstractUsernameFor
     try {
       
       user = SunbirdModelUtils.getUserByNameEmailOrPhone(context, username);
+      logger.info("AbstractPhoneFormAuthenticator@validateUserAndPassword - User by phone -"
+          + (user != null ? user.getUsername() : "null"));
       
     } catch (ModelDuplicateException mde) {
+        logger.info("AbstractPhoneFormAuthenticator@validateUserAndPassword - ModelDuplicateException -"
+            + mde.getMessage());
       ServicesLogger.LOGGER.modelDuplicateException(mde);
 
       // Could happen during federation import
       if (mde.getDuplicateFieldName() != null
           && mde.getDuplicateFieldName().equals(UserModel.EMAIL)) {
+          logger.info("AbstractPhoneFormAuthenticator@validateUserAndPassword - Duplicate email -"
+              + mde.getMessage());
         setDuplicateUserChallenge(context, Errors.EMAIL_IN_USE, Messages.EMAIL_EXISTS,
             AuthenticationFlowError.USER_CONFLICT);
       } else if (mde.getDuplicateFieldName() != null
           && mde.getDuplicateFieldName().equals(UserModel.USERNAME)) {
+          logger.info("AbstractPhoneFormAuthenticator@validateUserAndPassword - Duplicate username -"
+              + mde.getMessage());
         setDuplicateUserChallenge(context, Errors.USERNAME_IN_USE, Messages.USERNAME_EXISTS,
             AuthenticationFlowError.USER_CONFLICT);
       } else if (mde.getDuplicateFieldName() != null
           && mde.getDuplicateFieldName().equals(KeycloakSmsAuthenticatorConstants.ATTR_MOBILE)) {
+          logger.info("AbstractPhoneFormAuthenticator@validateUserAndPassword - Duplicate phone -"
+              + mde.getMessage());
         setDuplicateUserChallenge(context, Constants.MULTIPLE_USER_ASSOCIATED_WITH_PHONE,
             Constants.MULTIPLE_USER_ASSOCIATED_WITH_PHONE, AuthenticationFlowError.USER_CONFLICT);
       }
@@ -83,20 +97,29 @@ public abstract class AbstractPhoneFormAuthenticator extends AbstractUsernameFor
     }
 
     if (invalidUser(context, user)) {
+        logger.info("AbstractPhoneFormAuthenticator@validateUserAndPassword - invalidUser -"
+            + (user != null ? user.getUsername() : "null"));
       return false;
     }
 
     if (!validatePassword(context, user, inputData)) {
+        logger.info("AbstractPhoneFormAuthenticator@validateUserAndPassword - invalid password -"
+            + (user != null ? user.getUsername() : "null"));
       return false;
     }
 
     if (!enabledUser(context, user)) {
+        logger.info("AbstractPhoneFormAuthenticator@validateUserAndPassword - disabled user -"
+            + (user != null ? user.getUsername() : "null"));
       return false;
     }
 
     String rememberMe = inputData.getFirst("rememberMe");
+    logger.info("AbstractPhoneFormAuthenticator@validateUserAndPassword - Remember Me -" + rememberMe);
     boolean remember = rememberMe != null && rememberMe.equalsIgnoreCase("on");
     if (remember) {
+        logger.info("AbstractPhoneFormAuthenticator@validateUserAndPassword - Setting Remember Me for user -"
+            + (user != null ? user.getUsername() : "null"));
       context.getAuthenticationSession().setAuthNote(Details.REMEMBER_ME, "true");
       context.getEvent().detail(Details.REMEMBER_ME, "true");
     } else {

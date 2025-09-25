@@ -26,6 +26,7 @@ public class UserSearchService {
 
   @SuppressWarnings({"unchecked"})
   public static List<User> getUserByKey(String key, String value) {
+      logger.info("UserSearchService:getUserByKey getUserByKey method called with key: "+key+" and value: "+value);
     Map<String, Object> userRequest = new HashMap<>();
     Map<String, Object> request = new HashMap<>();
     request.put("key",key.toLowerCase());
@@ -35,6 +36,7 @@ public class UserSearchService {
     String userLookupUrl = System.getenv("sunbird_user_service_base_url")+"/private/user/v1/lookup";
     Map<String, Object> resMap =
       post(userRequest, userLookupUrl, System.getenv(Constants.SUNBIRD_LMS_AUTHORIZATION));
+    logger.info("UserSearchService:getUserByKey user lookup url "+userLookupUrl);
     logger.info("UserSearchService:getUserByKey responseMap "+resMap);
     Map<String, Object> result = null;
     List<Map<String, Object>> content = null;
@@ -49,16 +51,20 @@ public class UserSearchService {
       if (!content.isEmpty()) {
         content.forEach(userMap -> {
           if (null != userMap) {
+              logger.info("UserSearchService:getUserByKey userMap data: "+userMap);
             userList.add(createUser(userMap));
           }
         });
       }
+      logger.info("UserSearchService:getUserByKey return user list of size: "+userList.size());
       return userList;
     }
+    logger.info("UserSearchService:getUserByKey return empty list");
     return Collections.emptyList();
   }
 
   private static User createUser(Map<String, Object> userMap) {
+      logger.info("UserSearchService:createUser createUser method called");
     User user = new User();
     user.setEmail((String) userMap.get(Constants.EMAIL));
     user.setFirstName((String) userMap.get("firstName"));
@@ -81,6 +87,7 @@ public class UserSearchService {
     } else {
       user.setEnabled(true);
     }
+    logger.info("UserSearchService:createUser user created with id: "+user.getId());
     return user;
   }
 

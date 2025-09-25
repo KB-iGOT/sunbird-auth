@@ -3,6 +3,7 @@ package org.sunbird.keycloak.login;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.jboss.logging.Logger;
 import org.keycloak.Config.Scope;
 import org.keycloak.authentication.Authenticator;
 import org.keycloak.authentication.AuthenticatorFactory;
@@ -15,6 +16,7 @@ import org.sunbird.keycloak.resetcredential.sms.KeycloakSmsAuthenticatorConstant
 
 public class PasswordAndOtpAuthenticatorFactory implements AuthenticatorFactory {
 
+    Logger logger = Logger.getLogger(PasswordAndOtpAuthenticatorFactory.class);
 	public static final String ID = "password-otp-form";
 
 	private static final List<ProviderConfigProperty> configProperties = new ArrayList<ProviderConfigProperty>();
@@ -49,6 +51,7 @@ public class PasswordAndOtpAuthenticatorFactory implements AuthenticatorFactory 
 
 	@Override
 	public Authenticator create(KeycloakSession session) {
+        logger.info("PasswordAndOtpAuthenticatorFactory@create - PasswordAndOtpAuthenticator is created");
 		return new PasswordAndOtpAuthenticator();
 	}
 
@@ -94,14 +97,17 @@ public class PasswordAndOtpAuthenticatorFactory implements AuthenticatorFactory 
 
 	@Override
 	public void init(Scope config) {
+        logger.info("PasswordAndOtpAuthenticatorFactory@init - called");
 
 	}
 
 	@Override
 	public void postInit(KeycloakSessionFactory factory) {
+        logger.info("PasswordAndOtpAuthenticatorFactory@postInit - called");
 	}
 
 	@Override
 	public void close() {
+        logger.info("PasswordAndOtpAuthenticatorFactory@close - called");
 	}
 }

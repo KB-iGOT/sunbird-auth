@@ -54,6 +54,7 @@ public class RequiredActionLinkProvider implements RealmResourceProvider {
   @Produces(MediaType.APPLICATION_JSON)
   public Response generateRequiredActionLink(Map<String, String> request) {
     logger.debug("RestResourceProvider:generateRequiredActionLink: called ");
+      logger.info("RestResourceProvider:generateRequiredActionLink: request " + request);
 
     checkRealmAdminAccess();
 
@@ -65,6 +66,9 @@ public class RequiredActionLinkProvider implements RealmResourceProvider {
     UserModel user = getEnabledUserByUsernameOrError(userName);
     ClientModel client = getClientByClientIdOrError(clientId);
     validateRedirectUri(redirectUri, client);
+      logger.info("RestResourceProvider:generateRequiredActionLink: user " + user.getId()
+              + " client " + client.getClientId() + " actionName " + actionName + " redirectUri "
+              + redirectUri);
 
     int expirationInSecs = getExpirationInSecs(request.get(Constants.EXPIRATION_IN_SECS));
     int expiration = Time.currentTime() + expirationInSecs;
@@ -72,21 +76,28 @@ public class RequiredActionLinkProvider implements RealmResourceProvider {
     List<String> requiredActionList = getRequiredActionListOrError(actionName);
 
     try {
+        logger.info("RestResourceProvider:generateRequiredActionLink: creating token ");
       ExecuteActionsActionToken token = new ExecuteActionsActionToken(user.getId(), expiration,
           requiredActionList, redirectUri, clientId);
       
       if (StringUtils.isNotBlank(redirectUri)) {
+          logger.info("RestResourceProvider:generateRequiredActionLink: setting redirect uri note ");
         token.setNote(AuthenticationManager.SET_REDIRECT_URI_AFTER_REQUIRED_ACTIONS, "true");
       }
+      logger.info("RestResourceProvider:generateRequiredActionLink: created token ");
       UriBuilder builder = LoginActionsService.actionTokenProcessor(session.getContext().getUri());
-      
+        logger.info("RestResourceProvider:generateRequiredActionLink: actionTokenProcessor builder " + builder);
+
       token.setRedirectUri(redirectUri);
       builder.queryParam(Constants.KEY,
           token.serialize(session, session.getContext().getRealm(), session.getContext().getUri()));
+      logger.info("RestResourceProvider:generateRequiredActionLink: serialized token ");
       String link = builder.build(session.getContext().getRealm().getName()).toString();
+        logger.info("RestResourceProvider:generateRequiredActionLink: link " + link);
 
       Map<String, Object> response = new HashMap<>();
       response.put(Constants.LINK, link);
+      logger.info("RestResourceProvider:generateRequiredActionLink: returning response ");
       return Response.ok(response).build();
     } catch (Exception e) {
       return ErrorResponse.error(Constants.ERROR_CREATE_LINK, Status.INTERNAL_SERVER_ERROR);
@@ -95,13 +106,16 @@ public class RequiredActionLinkProvider implements RealmResourceProvider {
 
   private UserModel getEnabledUserByUsernameOrError(String userName) {
     logger.debug("RestResourceProvider: getEnabledUserByUsernameOrError called");
+    logger.info("RestResourceProvider: getEnabledUserByUsernameOrError userName " + userName);
     if (StringUtils.isBlank(userName)) {
       throw new WebApplicationException(
           ErrorResponse.error(MessageFormat.format(Constants.ERROR_MANDATORY_PARAM_MISSING,
               userName, Constants.USERNAME), Status.BAD_REQUEST));
     }
+    logger.info("RestResourceProvider: getEnabledUserByUsernameOrError finding user ");
     UserModel user = KeycloakModelUtils.findUserByNameOrEmail(session,
         session.getContext().getRealm(), userName);
+      logger.info("RestResourceProvider: getEnabledUserByUsernameOrError found user " + (user != null ? user.getId() : "null"));
 
     if (user == null) {
       throw new WebApplicationException(
@@ -113,11 +127,13 @@ public class RequiredActionLinkProvider implements RealmResourceProvider {
       throw new WebApplicationException(
           ErrorResponse.error(Constants.ERROR_USER_IS_DISABLED, Status.BAD_REQUEST));
     }
+      logger.info("RestResourceProvider: getEnabledUserByUsernameOrError returning user " + user.getId());
 
     return user;
   }
 
   private List<String> getRequiredActionListOrError(String actionName) {
+      logger.info("RestResourceProvider: getRequiredActionListOrError called with actionName " + actionName);
     if (StringUtils.isBlank(actionName)) {
       throw new WebApplicationException(
           ErrorResponse.error(MessageFormat.format(Constants.ERROR_MANDATORY_PARAM_MISSING,
@@ -137,6 +153,7 @@ public class RequiredActionLinkProvider implements RealmResourceProvider {
             ErrorResponse.error(MessageFormat.format(Constants.ERROR_INVALID_PARAMETER_VALUE,
                 actionName, Constants.REQUIRED_ACTION), Status.BAD_REQUEST));
     }
+      logger.info("RestResourceProvider: getRequiredActionListOrError returning requiredActionList " + requiredActionList);
 
     return requiredActionList;
   }
@@ -155,16 +172,19 @@ public class RequiredActionLinkProvider implements RealmResourceProvider {
           ErrorResponse.error(MessageFormat.format(Constants.ERROR_INVALID_PARAMETER_VALUE,
               expirationInSecsStr, Constants.EXPIRATION_IN_SECS), Status.BAD_REQUEST));
     }
+      logger.info("RestResourceProvider: getExpirationInSecs: expirationInSecs " + expirationInSecs);
 
     return expirationInSecs;
   }
 
   private void checkRealmAdminAccess() {
     logger.debug("RestResourceProvider: checkRealmAdminAccess called");
-    
+      logger.info("RestResourceProvider: checkRealmAdminAccess called");
+
     AuthResult authResult =
         new AppAuthManager().authenticateBearerToken(session, session.getContext().getRealm());
-    
+      logger.info("RestResourceProvider: checkRealmAdminAccess: authResult " + authResult);
+
     if (authResult == null) {
       throw new WebApplicationException(
           ErrorResponse.error(Constants.ERROR_NOT_AUTHORIZED, Status.UNAUTHORIZED));
@@ -177,9 +197,11 @@ public class RequiredActionLinkProvider implements RealmResourceProvider {
 
   private void validateRedirectUri(String redirectUri, ClientModel client) {
     logger.debug("RestResourceProvider: validateRedirectUri called");
+    logger.info("RestResourceProvider: validateRedirectUri called with redirectUri " + redirectUri + " client " + client.getClientId());
     if (StringUtils.isNotBlank(redirectUri)) {
       String redirect = RedirectUtils.verifyRedirectUri(session.getContext().getUri(), redirectUri,
           session.getContext().getRealm(), client);
+      logger.info("RestResourceProvider: validateRedirectUri: verified redirect " + redirect);
       if (redirect == null) {
         throw new WebApplicationException(
             ErrorResponse.error(MessageFormat.format(Constants.ERROR_INVALID_PARAMETER_VALUE,
@@ -190,12 +212,14 @@ public class RequiredActionLinkProvider implements RealmResourceProvider {
 
   private ClientModel getClientByClientIdOrError(String clientId) {
     logger.debug("RestResourceProvider: getClientByClientIdOrError called");
+    logger.info("RestResourceProvider: getClientByClientIdOrError called with clientId " + clientId);
     if (StringUtils.isBlank(clientId)) {
       throw new WebApplicationException(
           ErrorResponse.error(MessageFormat.format(Constants.ERROR_MANDATORY_PARAM_MISSING,
               clientId, Constants.CLIENT_ID), Status.BAD_REQUEST));
     }
     ClientModel client = session.getContext().getRealm().getClientByClientId(clientId);
+    logger.info("RestResourceProvider: getClientByClientIdOrError: found client " + (client != null ? client.getId() : "null"));
     if (client == null) {
       throw new WebApplicationException(
           ErrorResponse.error(MessageFormat.format(Constants.ERROR_INVALID_PARAMETER_VALUE,
@@ -205,6 +229,7 @@ public class RequiredActionLinkProvider implements RealmResourceProvider {
       throw new WebApplicationException(
           ErrorResponse.error(clientId + Constants.ERROR_NOT_ENABLED, Status.BAD_REQUEST));
     }
+    logger.info("RestResourceProvider: getClientByClientIdOrError: returning client " + client.getId());
     return client;
   }
 

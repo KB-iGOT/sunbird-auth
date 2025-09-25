@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import org.jboss.logging.Logger;
 import org.keycloak.models.ProtocolMapperModel;
 import org.keycloak.models.UserModel;
 import org.keycloak.models.UserSessionModel;
@@ -12,6 +14,8 @@ import org.keycloak.provider.ProviderConfigProperty;
 import org.keycloak.representations.IDToken;
 
 public class CustomProtocolMapper extends AbstractOIDCProtocolMapper implements OIDCAccessTokenMapper, OIDCIDTokenMapper, UserInfoTokenMapper {
+    Logger logger = Logger.getLogger(CustomProtocolMapper.class);
+
     private static final List<ProviderConfigProperty> configProperties = new ArrayList();
     public static final String PROVIDER_ID = "customer-igot-mapper";
 
@@ -39,6 +43,7 @@ public class CustomProtocolMapper extends AbstractOIDCProtocolMapper implements 
     }
 
     protected void setClaim(IDToken token, ProtocolMapperModel mappingModel, UserSessionModel userSession) {
+        logger.info("CustomProtocolMapper: setClaim method called");
         UserModel user = userSession.getUser();
         List<String> orgList = user.getAttributes().get("org");
         String org = "";
@@ -46,6 +51,7 @@ public class CustomProtocolMapper extends AbstractOIDCProtocolMapper implements 
             org = orgList.get(0);
         token.getOtherClaims().put("org", org);
         token.getOtherClaims().put("user_roles", user.getAttributes().get("roles"));
+        logger.info("CustomProtocolMapper: setClaim method completed");
     }
 
     public static ProtocolMapperModel create(String name, boolean accessToken, boolean idToken, boolean userInfo) {

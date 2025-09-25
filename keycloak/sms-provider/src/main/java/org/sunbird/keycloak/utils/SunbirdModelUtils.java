@@ -33,20 +33,26 @@ public class SunbirdModelUtils {
 
   public static UserModel getUserByNameEmailOrPhone(AuthenticationFlowContext context,
       String username) {
+      logger.info("SunbirdModelUtils:getUser getUserByNameEmailOrPhone called with username: "+username);
     String numberRegex = "\\d+";
     KeycloakSession session = context.getSession();
     if (username.matches(numberRegex)) {
+        logger.info("SunbirdModelUtils:getUser username matched with phone regex");
       List<UserModel> userModels = session.users().searchForUserByUserAttribute(
           KeycloakSmsAuthenticatorConstants.ATTR_MOBILE, username, context.getRealm());
+      logger.info("SunbirdModelUtils:getUser user model list size "+(userModels != null ? userModels.size() : 0));
       if (userModels != null && !userModels.isEmpty()) {
+          logger.info("SunbirdModelUtils:getUser user found with phone number");
         // multiple user found for same attribute
     	for(UserModel model : userModels) {
       		logger.info("SunbirdModelUtils@getUser userModel id=" + model.getId()+", userName=" + model.getUsername()+", firstName"+model.getFirstName());
       	}  
-    	if (userModels.size() > 1) {  
+    	if (userModels.size() > 1) {
+            logger.info("SunbirdModelUtils@getUser filtering user models with federated id");
     		List<UserModel> filtered = new ArrayList<>();
     		Set<String> ids = new HashSet<>();
     		userModels.forEach(model->{
+                logger.info("SunbirdModelUtils@getUser filtering user model id=" + model.getId()+", userName=" + model.getUsername()+", firstName"+model.getFirstName());
     			if(model.getId().startsWith("f:") && ids.add(model.getId())) {
     				filtered.add(model);
     			}
@@ -55,15 +61,19 @@ public class SunbirdModelUtils {
     	}
     	logger.info("SunbirdModelUtils@getUser user model size "+userModels.size());
     	if (userModels.size() > 1) {
+            logger.info("SunbirdModelUtils:getUser multiple user associated with phone");
           throw new ModelDuplicateException(Constants.MULTIPLE_USER_ASSOCIATED_WITH_PHONE,
               KeycloakSmsAuthenticatorConstants.ATTR_MOBILE);
         }
+        logger.info("SunbirdModelUtils:getUser user found with phone number");
         return userModels.get(0);
       } else {
+          logger.info("SunbirdModelUtils:getUser no user found with phone number, search by name or email");
         return KeycloakModelUtils.findUserByNameOrEmail(context.getSession(), context.getRealm(),
             username);
       }
     } else {
+        logger.info("SunbirdModelUtils:getUser username not matched with phone regex, search by name or email");
       return KeycloakModelUtils.findUserByNameOrEmail(context.getSession(), context.getRealm(),
           username);
     }
