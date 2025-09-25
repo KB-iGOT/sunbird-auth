@@ -108,13 +108,16 @@ public class KeycloakSmsAuthenticatorFactory implements AuthenticatorFactory, Co
 
     public void init(Config.Scope config) {
         logger.debug("init called ... config.scope = " + config);
+        logger.info("KeycloakSmsAuthenticatorFactory: init method called");
     }
 
     public void postInit(KeycloakSessionFactory factory) {
         logger.debug("postInit called ... factory = " + factory);
+        logger.info("KeycloakSmsAuthenticatorFactory: postInit method called");
     }
 
     public void close() {
         logger.debug("close called ...");
+        logger.info("KeycloakSmsAuthenticatorFactory: close method called");
     }
 }

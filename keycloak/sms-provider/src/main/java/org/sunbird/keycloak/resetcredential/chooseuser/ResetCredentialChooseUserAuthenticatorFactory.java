@@ -34,6 +34,7 @@ public class ResetCredentialChooseUserAuthenticatorFactory
 
   @Override
   public Authenticator create(KeycloakSession session) {
+      logger.info("ResetCredentialChooseUserAuthenticatorFactory: create method called");
     logger.debug("create called ... returning " + SINGLETON);
     return SINGLETON;
   }
@@ -41,16 +42,19 @@ public class ResetCredentialChooseUserAuthenticatorFactory
 
   @Override
   public void init(Scope config) {
+      logger.info("ResetCredentialChooseUserAuthenticatorFactory: init method called");
     logger.debug("ResetCredentialChooseUserAuthenticatorFactory init called ... ");
   }
 
   @Override
   public void postInit(KeycloakSessionFactory factory) {
+      logger.info("ResetCredentialChooseUserAuthenticatorFactory: postInit method called");
     logger.debug("ResetCredentialChooseUserAuthenticatorFactory postInit called ... ");
   }
 
   @Override
   public void close() {
+      logger.info("ResetCredentialChooseUserAuthenticatorFactory: close method called");
     logger.debug("ResetCredentialChooseUserAuthenticatorFactory close called ... ");
   }
 
@@ -86,6 +90,7 @@ public class ResetCredentialChooseUserAuthenticatorFactory
 
   @Override
   public Requirement[] getRequirementChoices() {
+      logger.info("ResetCredentialChooseUserAuthenticatorFactory: getRequirementChoices method called");
     logger.debug("getRequirementChoices called ... returning " + REQUIREMENT_CHOICES);
     return REQUIREMENT_CHOICES;
   }
