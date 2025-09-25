@@ -15,27 +15,32 @@ public class RequiredActionLinkProviderFactory implements RealmResourceProviderF
 
   @Override
   public String getId() {
+      logger.info("RestResourceProviderFactory: getId called ");
     logger.debug("RestResourceProviderFactory: getId called ");
     return PROVIDER_ID;
   }
 
   @Override
   public RealmResourceProvider create(KeycloakSession session) {
+      logger.info("RestResourceProviderFactory: create called ");
     return new RequiredActionLinkProvider(session);
   }
 
   @Override
   public void init(Scope config) {
+      logger.info("RequiredActionLinkProviderFactory@init - called");
 
   }
 
   @Override
   public void postInit(KeycloakSessionFactory factory) {
+      logger.info("RequiredActionLinkProviderFactory@postInit - called");
 
   }
 
   @Override
   public void close() {
+      logger.info("RequiredActionLinkProviderFactory@close - called");
 
   }
 

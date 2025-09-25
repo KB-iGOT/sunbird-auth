@@ -42,39 +42,53 @@ public class PhonePasswordForm extends AbstractPhoneFormAuthenticator implements
 
     @Override
     public void action(AuthenticationFlowContext context) {
+        logger.info("PhonePasswordForm@action - called");
         logger.debug("PhonePasswordForm@action - called");
         MultivaluedMap<String, String> formData = context.getHttpRequest().getDecodedFormParameters();
+        logger.info("Form Data: " + formData);
         if (formData.containsKey("cancel")) {
+            logger.info("Authentication cancelled by user");
             context.cancelLogin();
             return;
         }
         if (!validateForm(context, formData)) {
+            logger.info("Validation of form failed");
             return;
         }
         context.success();
     }
 
     protected boolean validateForm(AuthenticationFlowContext context, MultivaluedMap<String, String> formData) {
+        logger.info("PhonePasswordForm@validateForm - called");
         logger.debug("PhonePasswordForm@validateForm - called");
         return validateUserAndPassword(context, formData);
     }
 
     @Override
     public void authenticate(AuthenticationFlowContext context) {
+        logger.info("PhonePasswordForm@authenticate - called");
         MultivaluedMap<String, String> formData = new MultivaluedMapImpl<>();
         String loginHint = context.getAuthenticationSession().getClientNote(OIDCLoginProtocol.LOGIN_HINT_PARAM);
+        logger.info("Login hint: " + loginHint);
 
         String rememberMeUsername = AuthenticationManager.getRememberMeUsername(context.getRealm(), context.getHttpRequest().getHttpHeaders());
+        logger.info("Remember me username: " + rememberMeUsername);
 
         if (loginHint != null || rememberMeUsername != null) {
+            logger.info("Pre-filling username in the login form");
             if (loginHint != null) {
+                logger.info("Using login hint for username");
                 formData.add(AuthenticationManager.FORM_USERNAME, loginHint);
             } else {
+                logger.info("Using remember me username");
                 formData.add(AuthenticationManager.FORM_USERNAME, rememberMeUsername);
                 formData.add("rememberMe", "on");
+                logger.info("Remember me set to on");
             }
         }
         Response challengeResponse = challenge(context, formData);
+        logger.info("Challenge response created : " + challengeResponse);
+        logger.info("Displaying login form");
         context.challenge(challengeResponse);
     }
 
@@ -84,6 +98,7 @@ public class PhonePasswordForm extends AbstractPhoneFormAuthenticator implements
     }
 
     protected Response challenge(AuthenticationFlowContext context, MultivaluedMap<String, String> formData) {
+        logger.info("PhonePasswordForm@challenge - called");
         LoginFormsProvider forms = context.form();
 
         if (formData.size() > 0) forms.setFormData(formData);

@@ -23,6 +23,7 @@ public class UserService {
   }
 
   public List<User> getByUsername(String username) {
+      logger.info("UserService:getByUsername get by username method called = " + username);
     List<User> users = null;
     String numberRegex = "\\d+";
     String emailRegex = "^[_A-Za-z0-9-\\+]+(\\.[_A-Za-z0-9-]+)*@"
@@ -30,16 +31,20 @@ public class UserService {
     // mobile number length is of 10 digit
     // assumption is either username will match with phone or email
     if (username.matches(numberRegex) && 10 == username.length()) {
+        logger.info("UserService:getByUsername username matched with phone regex");
       users = getByKey(Constants.PHONE, username);
       if (users != null) {
+          logger.info("UserService:getByUsername user found with phone number");
         return users;
       }
     } else if (username.matches(emailRegex)) {
+        logger.info("UserService:getByUsername username matched with email regex");
       users = getByKey(Constants.EMAIL, username);
       if (users != null)
         return users;
     }
     users = getByKey(Constants.USERNAME, username);
+    logger.info("UserService:getByUsername search user by username");
     if (users != null)
       return users;
 
@@ -47,6 +52,7 @@ public class UserService {
   }
 
   public List<User> getByKey(String key, String searchValue) {
+      logger.info("UserService:getByKey get by key method called with key: "+key+" and value: "+searchValue);
     return UserSearchService.getUserByKey(key, searchValue);
   }
 

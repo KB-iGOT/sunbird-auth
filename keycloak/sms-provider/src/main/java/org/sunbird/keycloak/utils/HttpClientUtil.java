@@ -28,9 +28,11 @@ public class HttpClientUtil {
   private HttpClientUtil() {
     ConnectionKeepAliveStrategy keepAliveStrategy =
       (response, context) -> {
+        logger.info("ConnectionKeepAliveStrategy called");
         HeaderElementIterator it =
           new BasicHeaderElementIterator(response.headerIterator(HTTP.CONN_KEEP_ALIVE));
         while (it.hasNext()) {
+            logger.info("Iterating through keep alive headers");
           HeaderElement he = it.nextElement();
           String param = he.getName();
           String value = he.getValue();
@@ -42,6 +44,7 @@ public class HttpClientUtil {
       };
 
     PoolingHttpClientConnectionManager connectionManager = new PoolingHttpClientConnectionManager();
+    logger.info("PoolingHttpClientConnectionManager called");
     connectionManager.setMaxTotal(200);
     connectionManager.setDefaultMaxPerRoute(150);
     connectionManager.closeIdleConnections(180, TimeUnit.SECONDS);
@@ -51,22 +54,28 @@ public class HttpClientUtil {
         .useSystemProperties()
         .setKeepAliveStrategy(keepAliveStrategy)
         .build();
+    logger.info("HttpClientUtil initialized");
   }
 
   public static HttpClientUtil getInstance() {
     if (httpClientUtil == null) {
+        logger.info("HttpClientUtil instance is null, creating new instance");
       synchronized (HttpClientUtil.class) {
         if (httpClientUtil == null) {
+            logger.info("HttpClientUtil instance is still null, creating new instance inside synchronized block");
           httpClientUtil = new HttpClientUtil();
         }
       }
     }
+    logger.info("Returning HttpClientUtil instance");
     return httpClientUtil;
   }
 
   public static String post(String requestURL, String params, Map<String, String> headers) {
+      logger.info("HttpClientUtil: post method called with URL: " + requestURL);
     CloseableHttpResponse response = null;
     try {
+        logger.info("Creating HttpPost request");
       HttpPost httpPost = new HttpPost(requestURL);
       if (null != headers && headers.size() >= 1) {
         for (Map.Entry<String, String> entry : headers.entrySet()) {
@@ -74,11 +83,13 @@ public class HttpClientUtil {
         }
       }
       StringEntity entity = new StringEntity(params);
+      logger.info("Setting entity for HttpPost request");
       httpPost.setEntity(entity);
 
       response = httpclient.execute(httpPost);
       int status = response.getStatusLine().getStatusCode();
       if (status >= 200 && status < 300) {
+          logger.info("Post call successful with status code: " + status);
         HttpEntity httpEntity = response.getEntity();
         byte[] bytes = EntityUtils.toByteArray(httpEntity);
         StatusLine sl = response.getStatusLine();
@@ -89,13 +100,16 @@ public class HttpClientUtil {
         return "";
       }
     } catch (Exception ex) {
+        logger.info("Exception occurred while making Post call");
       logger.error("Exception occurred while calling Post method", ex);
       return "";
     } finally {
       if (null != response) {
         try {
+            logger.info("Closing Post response object");
           response.close();
         } catch (Exception ex) {
+            logger.info("Exception occurred while closing Post response object");
           logger.error("Exception occurred while closing Post response object", ex);
         }
       }
