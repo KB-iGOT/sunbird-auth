@@ -108,4 +108,5 @@ public class Constants {
 	public static final String IV = "iv";
 	public static final String EC_LOGIN = "/eclogin/";
 	public static final String EC_LOGIN_PAGE="eclogin.ftl";
+    public static final String IIIDEM = "iiidem";
 }
