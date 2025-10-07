@@ -187,38 +187,45 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		context.getAuthenticationSession().setAuthNote(Constants.SECRET_KEY, secretKey);
 		LoginFormsProvider formsProvider = context.form();
 		formsProvider.setAttribute(Constants.SECRET_KEY, secretKey);
+
+		// Check if the redirect URI contains EC_LOGIN
+		String redirectUri = context.getAuthenticationSession().getRedirectUri();
+		String errorPage = redirectUri != null && redirectUri.contains(Constants.IIIDEM)
+			? Constants.EC_LOGIN_PAGE
+			: Constants.LOGIN_PAGE;
+
 		String error = context.getEvent().getEvent().getError();
 		String errMsg = "Internal Server Error!";
 		switch (error) {
 			case Errors.INVALID_USER_CREDENTIALS:
 				errMsg = "Invalid credentials!";
-				Response invalidCredsRes = formsProvider.setError(errMsg).createForm(Constants.LOGIN_PAGE);
+				Response invalidCredsRes = formsProvider.setError(errMsg).createForm(errorPage);
 				context.failureChallenge(AuthenticationFlowError.INVALID_CREDENTIALS, invalidCredsRes);
 				break;
 			case Errors.USER_NOT_FOUND:
 				errMsg = "Invalid user details.";
-				Response invalidUserRes = formsProvider.setError(errMsg).createForm(Constants.LOGIN_PAGE);
+				Response invalidUserRes = formsProvider.setError(errMsg).createForm(errorPage);
 				context.failureChallenge(AuthenticationFlowError.UNKNOWN_USER, invalidUserRes);
 				break;
 			case Errors.USER_DISABLED:
 				errMsg = "User account is disabled.";
-				Response userDisabledRes = formsProvider.setError(errMsg).createForm(Constants.LOGIN_PAGE);
+				Response userDisabledRes = formsProvider.setError(errMsg).createForm(errorPage);
 				context.failureChallenge(AuthenticationFlowError.USER_DISABLED, userDisabledRes);
 				break;
 			case Errors.USER_TEMPORARILY_DISABLED:
 				errMsg = "User account is disabled temporarily.";
-				Response tempDisabledRes = formsProvider.setError(errMsg).createForm(Constants.LOGIN_PAGE);
+				Response tempDisabledRes = formsProvider.setError(errMsg).createForm(errorPage);
 				context.failureChallenge(AuthenticationFlowError.USER_TEMPORARILY_DISABLED, tempDisabledRes);
 				break;
 			case Errors.DIFFERENT_USER_AUTHENTICATED: 
 				errMsg = "Authentication Error! Please enter your credentials again.";
-				Response diffUsersFoundRes = formsProvider.setError(errMsg).createForm(Constants.LOGIN_PAGE);
+				Response diffUsersFoundRes = formsProvider.setError(errMsg).createForm(errorPage);
 				context.failureChallenge(AuthenticationFlowError.USER_CONFLICT, diffUsersFoundRes);
 				break;
 			case Errors.EMAIL_IN_USE:
 			case Errors.USERNAME_IN_USE:
 			default:
-				Response internalErrorRes = formsProvider.setError(errMsg).createForm(Constants.LOGIN_PAGE);
+				Response internalErrorRes = formsProvider.setError(errMsg).createForm(errorPage);
 				context.failureChallenge(AuthenticationFlowError.INTERNAL_ERROR, internalErrorRes);
 				break;
 		}
