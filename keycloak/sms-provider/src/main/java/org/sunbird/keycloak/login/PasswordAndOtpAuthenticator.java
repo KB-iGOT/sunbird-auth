@@ -88,6 +88,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		formsProvider.setAttribute(Constants.SECRET_KEY, secretKey);
 		if(context.getAuthenticationSession().getRedirectUri().contains(Constants.EC_LOGIN)){
 			logger.info("loading ec login page");
+			context.getAuthenticationSession().setAuthNote(Constants.AUTH_NOTE_LOGIN_PAGE, Constants.EC_LOGIN_PAGE);
 			context.challenge(formsProvider.createForm(Constants.EC_LOGIN_PAGE));
 		}else{
 			logger.info("loading login page");
@@ -188,11 +189,14 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		LoginFormsProvider formsProvider = context.form();
 		formsProvider.setAttribute(Constants.SECRET_KEY, secretKey);
 
-		// Check if the redirect URI contains EC_LOGIN
-		String redirectUri = context.getAuthenticationSession().getRedirectUri();
-		String errorPage = redirectUri != null && redirectUri.contains(Constants.IIIDEM)
-			? Constants.EC_LOGIN_PAGE
-			: Constants.LOGIN_PAGE;
+		// Set the default error page
+		String errorPage = Constants.LOGIN_PAGE;
+
+		// Check if authNote is blank or equals EC_LOGIN, then set error page to EC_LOGIN_PAGE
+		if (StringUtils.isNotBlank(context.getAuthenticationSession().getAuthNote(Constants.AUTH_NOTE_LOGIN_PAGE)) && 
+		        (Constants.EC_LOGIN_PAGE.equals(context.getAuthenticationSession().getAuthNote(Constants.AUTH_NOTE_LOGIN_PAGE)))) {
+			errorPage = Constants.EC_LOGIN_PAGE;
+		}
 
 		String error = context.getEvent().getEvent().getError();
 		String errMsg = "Internal Server Error!";
