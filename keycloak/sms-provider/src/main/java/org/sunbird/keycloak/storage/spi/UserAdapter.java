@@ -85,24 +85,41 @@ public class UserAdapter extends AbstractUserAdapterFederatedStorage {
   
   @Override
   public List<String> getAttribute(String name) {
-     List<String> list = getFederatedStorage().getAttributes(realm, keycloakId).get(name);
-     return list;
+    logger.info("UserAdapter:getAttribute method called with name: " + name);
+    List<String> list = getFederatedStorage().getAttributes(realm, keycloakId).get(name);
+    if (list != null) {
+        logger.info("UserAdapter:getAttribute method called with name: " + name);
+        return list;
+    }
+    logger.info("UserAdapter:getAttribute method attribute name: " + name + " value is null, wrapping in list");
+    switch (name) {
+        case "phone":
+            return wrap(user.getPhone());
+        case "countryCode":
+            return wrap(user.getCountryCode());
+        case "org":
+            return wrap(user.getOrg());
+        case "roles":
+            return user.getRoles() != null ? user.getRoles() : new ArrayList<>();
+        case "firstName":
+            return wrap(user.getFirstName());
+        case "lastName":
+            return wrap(user.getLastName());
+        case "email":
+            return wrap(user.getEmail());
+        default:
+            return new ArrayList<>();
+    }
   }
   
   @Override
   public Map<String, List<String>> getAttributes() {
 	logger.info("UserAdapter:getAttributes method started " );  
     Map<String, List<String>> attributes = new HashMap<>();
-    List<String> phoneValues = new ArrayList<>();
-    phoneValues.add(user.getPhone());
-    attributes.put("phone", phoneValues);
-    List<String> countrycodeValues = new ArrayList<>();
-    countrycodeValues.add(user.getCountryCode());
-    attributes.put("countryCode", countrycodeValues);
-    List<String> rootOrgValue = new ArrayList<>();
-    rootOrgValue.add(user.getOrg());
-    attributes.put("org", rootOrgValue);
-    attributes.put("roles", user.getRoles());
+    attributes.put("phone", wrap(user.getPhone()));
+    attributes.put("countryCode", wrap(user.getCountryCode()));
+    attributes.put("org", wrap(user.getOrg()));
+    attributes.put("roles", user.getRoles() != null ? user.getRoles() : new ArrayList<>());
     logger.info("UserAdapter:getAttributes method ended " );
     return attributes;
   }
@@ -110,5 +127,13 @@ public class UserAdapter extends AbstractUserAdapterFederatedStorage {
   @Override
   public String getId() {
     return keycloakId;
+  }
+
+  private List<String> wrap(String value) {
+    List<String> list = new ArrayList<>();
+    if (value != null) {
+        list.add(value);
+    }
+    return list;
   }
 }
