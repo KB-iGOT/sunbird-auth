@@ -25,7 +25,9 @@ import org.powermock.modules.junit4.PowerMockRunner;
 @RunWith(PowerMockRunner.class)
 @PrepareForTest({StorageId.class,KeycloakSession.class,ComponentModel.class,UserService.class,
   UserAdapter.class,RealmModel.class,UserModel.class,UserSearchService.class,GroupModel.class})
-@PowerMockIgnore({"javax.management.*", "javax.net.ssl.*", "javax.security.*"})
+@PowerMockIgnore({"javax.management.*", "javax.net.ssl.*", "javax.security.*", "javax.crypto.*",
+    "com.sun.org.apache.xerces.*", "javax.xml.*", "org.xml.*", "org.w3c.dom.*",
+    "com.sun.org.apache.xalan.*", "javax.activation.*", "javax.net.*"})
 public class UserServiceProviderTest {
 
   private static KeycloakSession session = null;
