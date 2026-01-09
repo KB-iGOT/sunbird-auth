@@ -190,6 +190,13 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 
 		String error = context.getEvent().getEvent().getError();
 		String errMsg = "Internal Server Error!";
+
+		// Handle null error case - use empty string to trigger default case
+		if (error == null) {
+			logger.warn("Error code is null, will use default error handling");
+			error = "";
+		}
+
 		switch (error) {
 			case Errors.INVALID_USER_CREDENTIALS:
 				errMsg = "Invalid credentials!";
@@ -305,6 +312,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		String emailOrMobile = getEmailOrMobileNumber(context);
 		UserModel user = getUserByMobileNumber(context, emailOrMobile);
 		if (null == user) {
+			context.getEvent().getEvent().setError(Errors.USER_NOT_FOUND);
 			goErrorPage(context, "Oops, Member not found.");
 			return;
 		}
@@ -326,7 +334,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 
 		// Send the key into the User Mobile Phone
 		if (sendOtpByEmailOrSms(context, emailOrMobile, attributes.get(Constants.SESSION_OTP_CODE))) {
-			//SMS is sent successfully, let's save the details in session and return the necessary page.			
+			//SMS is sent successfully, let's save the details in session and return the necessary page.
 			context.getAuthenticationSession().setAuthNote(Constants.SESSION_OTP_CODE, attributes.get(Constants.SESSION_OTP_CODE));
 			context.getAuthenticationSession().setAuthNote(Constants.SESSION_OTP_EXPIRE_TIME, attributes.get(KeycloakSmsAuthenticatorConstants.CONF_PRP_SMS_CODE_TTL));
 			context.getAuthenticationSession().setAuthNote(Constants.ATTEMPTED_EMAIL_OR_MOBILE_NUMBER, emailOrMobile);
@@ -336,6 +344,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 			context.setUser(user);
 			goPage(context, Constants.PAGE_INPUT_OTP, StringUtils.EMPTY, attributes);
 		} else {
+			context.getEvent().getEvent().setError("SMS_SEND_FAILED");
 			goErrorPage(context, "Failed to send out SMS. Please contact Administrator.");
 		}
 	}
@@ -353,6 +362,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		if (sendOtpByEmailOrSms(context, mobileNumber, attributes.get(Constants.SESSION_OTP_CODE))) {
 			goPage(context, Constants.PAGE_INPUT_OTP);
 		} else {
+			context.getEvent().getEvent().setError("SMS_SEND_FAILED");
 			goErrorPage(context, "Failed to send out SMS. Please contact Administrator.");
 		}
 	}
