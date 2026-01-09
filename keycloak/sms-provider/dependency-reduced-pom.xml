@@ -33,16 +33,28 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <version>3.2.5</version>
         <configuration>
-          <argLine>--add-opens java.base/java.lang=ALL-UNNAMED
-						--add-opens java.base/java.util=ALL-UNNAMED
-						--add-opens java.base/java.lang.reflect=ALL-UNNAMED
-						--add-opens java.base/java.text=ALL-UNNAMED
-						--add-opens java.desktop/java.awt.font=ALL-UNNAMED
-						--add-opens java.base/sun.nio.ch=ALL-UNNAMED</argLine>
+          <argLine>${surefire.argLine}</argLine>
         </configuration>
       </plugin>
     </plugins>
   </build>
+  <profiles>
+    <profile>
+      <id>java8</id>
+      <properties />
+    </profile>
+    <profile>
+      <id>java9-plus</id>
+      <properties>
+        <surefire.argLine>--add-opens java.base/java.lang=ALL-UNNAMED
+					--add-opens java.base/java.util=ALL-UNNAMED
+					--add-opens java.base/java.lang.reflect=ALL-UNNAMED
+					--add-opens java.base/java.text=ALL-UNNAMED
+					--add-opens java.desktop/java.awt.font=ALL-UNNAMED
+					--add-opens java.base/sun.nio.ch=ALL-UNNAMED</surefire.argLine>
+      </properties>
+    </profile>
+  </profiles>
   <dependencies>
     <dependency>
       <groupId>org.keycloak</groupId>

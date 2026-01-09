@@ -44,18 +44,43 @@
 				<artifactId>maven-surefire-plugin</artifactId>
 				<version>3.2.5</version>
 				<configuration>
-					<argLine>
-						--add-opens java.base/java.lang=ALL-UNNAMED
-						--add-opens java.base/java.util=ALL-UNNAMED
-						--add-opens java.base/java.lang.reflect=ALL-UNNAMED
-						--add-opens java.base/java.text=ALL-UNNAMED
-						--add-opens java.desktop/java.awt.font=ALL-UNNAMED
-						--add-opens java.base/sun.nio.ch=ALL-UNNAMED
-					</argLine>
+					<argLine>${surefire.argLine}</argLine>
 				</configuration>
 			</plugin>
 		</plugins>
 	</build>
+
+	<profiles>
+		<!-- Profile for Java 8 (no add-opens needed) -->
+		<profile>
+			<id>java8</id>
+			<activation>
+				<jdk>1.8</jdk>
+			</activation>
+			<properties>
+				<surefire.argLine></surefire.argLine>
+			</properties>
+		</profile>
+
+		<!-- Profile for Java 9+ (add-opens required for PowerMock) -->
+		<profile>
+			<id>java9-plus</id>
+			<activation>
+				<jdk>[9,)</jdk>
+			</activation>
+			<properties>
+				<surefire.argLine>
+					--add-opens java.base/java.lang=ALL-UNNAMED
+					--add-opens java.base/java.util=ALL-UNNAMED
+					--add-opens java.base/java.lang.reflect=ALL-UNNAMED
+					--add-opens java.base/java.text=ALL-UNNAMED
+					--add-opens java.desktop/java.awt.font=ALL-UNNAMED
+					--add-opens java.base/sun.nio.ch=ALL-UNNAMED
+				</surefire.argLine>
+			</properties>
+		</profile>
+	</profiles>
+
 	<dependencies>
 		<dependency>
 			<groupId>org.keycloak</groupId>
