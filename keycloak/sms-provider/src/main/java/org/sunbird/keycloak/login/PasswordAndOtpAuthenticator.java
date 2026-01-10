@@ -164,11 +164,16 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 	private void authenticateOtp(AuthenticationFlowContext context) {
 		CODE_STATUS status = validateCode(context);
 		if (status == CODE_STATUS.VALID) {
-			logger.info("Validation of username + password is successful... ");
+			logger.info("Validation of Username + OTP is successful... ");
 			context.getAuthenticationSession().removeAuthNote(Constants.SESSION_OTP_CODE);
 			context.success();
 		} else if (status == CODE_STATUS.EXPIRED) {
-			goErrorPage(context, Constants.PAGE_INPUT_OTP, Constants.OTP_EXPIRED);
+			// OTP expired - clear session data and redirect to login page
+			context.getAuthenticationSession().removeAuthNote(Constants.SESSION_OTP_CODE);
+			context.getAuthenticationSession().removeAuthNote(Constants.SESSION_OTP_EXPIRE_TIME);
+			context.getAuthenticationSession().removeAuthNote(Constants.ATTEMPTED_EMAIL_OR_MOBILE_NUMBER);
+			context.getEvent().getEvent().setError(Constants.OTP_EXPIRED);
+			goErrorPage(context, Constants.OTP_EXPIRED);
 		} else {
 			goErrorPage(context, Constants.PAGE_INPUT_OTP, Constants.INVALID_OTP_ENTERED);
 		}
@@ -222,6 +227,11 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 				errMsg = "Authentication Error! Please enter your credentials again.";
 				Response diffUsersFoundRes = formsProvider.setError(errMsg).createForm(errorPage);
 				context.failureChallenge(AuthenticationFlowError.USER_CONFLICT, diffUsersFoundRes);
+				break;
+			case Constants.OTP_EXPIRED:
+				errMsg = "OTP has expired. Please request for a new OTP.";
+				Response otpExpiredRes = formsProvider.setError(errMsg).createForm(errorPage);
+				context.failureChallenge(AuthenticationFlowError.EXPIRED_CODE, otpExpiredRes);
 				break;
 			case Errors.EMAIL_IN_USE:
 			case Errors.USERNAME_IN_USE:
