@@ -47,27 +47,30 @@ node('build-slave') {
                 }
             }
 
-            stage('ArchiveArtifacts') {
-                sh """
-                    mkdir keycloak_artifacts
-                    zip -r keycloak_artifacts.zip:${artifact_version} sunbird_auth_24.0v
-                """
+stage('ArchiveArtifacts') {
+    sh """
+        mkdir -p keycloak_artifacts
+        zip -r keycloak_artifacts.zip:${artifact_version} sunbird_auth_24.0v
+    """
 
-                archiveArtifacts artifacts: "keycloak_artifacts.zip:${artifact_version}",
-                                 fingerprint: true,
-                                 onlyIfSuccessful: true
+    archiveArtifacts artifacts: "keycloak_artifacts.zip:${artifact_version}",
+                     fingerprint: true,
+                     onlyIfSuccessful: true
 
-                sh """
-                    echo {
-                        \\"artifact_name\\" : \\"keycloak_artifacts.zip\\",
-                        \\"artifact_version\\" : \\"${artifact_version}\\",
-                        \\"node_name\\" : \\"${env.NODE_NAME}\\"
-                    } > metadata.json
-                """
+    sh """
+        cat <<EOF > metadata.json
+{
+  "artifact_name": "keycloak_artifacts.zip",
+  "artifact_version": "${artifact_version}",
+  "node_name": "${env.NODE_NAME}"
+}
+EOF
+    """
 
-                archiveArtifacts "metadata.json"
-                currentBuild.description = "${artifact_version}"
-            }
+    archiveArtifacts "metadata.json"
+    currentBuild.description = "${artifact_version}"
+}
+
         }
     }
     catch (err) {
