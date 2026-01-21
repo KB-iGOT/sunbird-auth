@@ -164,42 +164,44 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 	private void authenticateOtp(AuthenticationFlowContext context) {
 		CODE_STATUS status = validateCode(context);
 		if (status == CODE_STATUS.VALID) {
-			logger.info("Validation of username + password is successful... ");
+			logger.info("Validation of Username + OTP is successful... ");
 			context.getAuthenticationSession().removeAuthNote(Constants.SESSION_OTP_CODE);
 			context.success();
 		} else if (status == CODE_STATUS.EXPIRED) {
-			goErrorPage(context, Constants.PAGE_INPUT_OTP, Constants.OTP_EXPIRED);
+			// OTP expired - clear session data and redirect to login page
+			context.getAuthenticationSession().removeAuthNote(Constants.SESSION_OTP_CODE);
+			context.getAuthenticationSession().removeAuthNote(Constants.SESSION_OTP_EXPIRE_TIME);
+			context.getAuthenticationSession().removeAuthNote(Constants.ATTEMPTED_EMAIL_OR_MOBILE_NUMBER);
+			context.getEvent().getEvent().setError(Constants.OTP_EXPIRED);
+			goErrorPage(context, Constants.OTP_EXPIRED);
 		} else {
 			goErrorPage(context, Constants.PAGE_INPUT_OTP, Constants.INVALID_OTP_ENTERED);
 		}
 	}
 
 	private void goErrorPage(AuthenticationFlowContext context, String message) {
-		String secretKey = context.getAuthenticationSession().getAuthNote(Constants.SECRET_KEY);
-		if (StringUtils.isBlank(secretKey)) {
-			// Generate the secret key
-			secretKey = generateSecretKey();
-			logger.info("Generated new secret key.");
-		}
-		
-		logger.debug("OtpSmsFormAuthenticator::goErrorPage: message: " + message + ", keyValue: " + secretKey);
+		logger.debug("OtpSmsFormAuthenticator::goErrorPage: message: " + message);
 
-		// Store the secret key as an authentication session note
-		context.getAuthenticationSession().setAuthNote(Constants.SECRET_KEY, secretKey);
-		LoginFormsProvider formsProvider = context.form();
-		formsProvider.setAttribute(Constants.SECRET_KEY, secretKey);
+		LoginFormsProvider formsProvider = getLoginFormsProviderWithSecretKey(context);
 
 		// Set the default error page
 		String errorPage = Constants.LOGIN_PAGE;
 
 		// Check if authNote is blank or equals EC_LOGIN, then set error page to EC_LOGIN_PAGE
-		if (StringUtils.isNotBlank(context.getAuthenticationSession().getAuthNote(Constants.AUTH_NOTE_LOGIN_PAGE)) && 
+		if (StringUtils.isNotBlank(context.getAuthenticationSession().getAuthNote(Constants.AUTH_NOTE_LOGIN_PAGE)) &&
 		        (Constants.EC_LOGIN_PAGE.equals(context.getAuthenticationSession().getAuthNote(Constants.AUTH_NOTE_LOGIN_PAGE)))) {
 			errorPage = Constants.EC_LOGIN_PAGE;
 		}
 
 		String error = context.getEvent().getEvent().getError();
 		String errMsg = "Internal Server Error!";
+
+		// Handle null error case - use empty string to trigger default case
+		if (error == null) {
+			logger.warn("Error code is null, will use default error handling");
+			error = "";
+		}
+
 		switch (error) {
 			case Errors.INVALID_USER_CREDENTIALS:
 				errMsg = "Invalid credentials!";
@@ -221,10 +223,15 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 				Response tempDisabledRes = formsProvider.setError(errMsg).createForm(errorPage);
 				context.failureChallenge(AuthenticationFlowError.USER_TEMPORARILY_DISABLED, tempDisabledRes);
 				break;
-			case Errors.DIFFERENT_USER_AUTHENTICATED: 
+			case Errors.DIFFERENT_USER_AUTHENTICATED:
 				errMsg = "Authentication Error! Please enter your credentials again.";
 				Response diffUsersFoundRes = formsProvider.setError(errMsg).createForm(errorPage);
 				context.failureChallenge(AuthenticationFlowError.USER_CONFLICT, diffUsersFoundRes);
+				break;
+			case Constants.OTP_EXPIRED:
+				errMsg = "OTP has expired. Please request for a new OTP.";
+				Response otpExpiredRes = formsProvider.setError(errMsg).createForm(errorPage);
+				context.failureChallenge(AuthenticationFlowError.EXPIRED_CODE, otpExpiredRes);
 				break;
 			case Errors.EMAIL_IN_USE:
 			case Errors.USERNAME_IN_USE:
@@ -239,17 +246,19 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 
 	private void goErrorPage(AuthenticationFlowContext context, String page, String message) {
 		logger.info("OtpSmsFormAuthenticator::goErrorPage: message: " + message + ", page: " + page);
-		Response challenge = context.form().setError(message).createForm(page);
+		LoginFormsProvider formsProvider = getLoginFormsProviderWithSecretKey(context);
+		Response challenge = formsProvider.setError(message).createForm(page);
 		context.failureChallenge(AuthenticationFlowError.INVALID_CREDENTIALS, challenge);
 	}
 
 	private void goPage(AuthenticationFlowContext context, String page) {
-		context.challenge(context.form().createForm(page));
+		LoginFormsProvider formsProvider = getLoginFormsProviderWithSecretKey(context);
+		context.challenge(formsProvider.createForm(page));
 	}
 
 	private void goPage(AuthenticationFlowContext context, String page, String errorMsg,
 			Map<String, String> attributes) {
-		LoginFormsProvider resForm = context.form();
+		LoginFormsProvider resForm = getLoginFormsProviderWithSecretKey(context);
 		for (Entry<String, String> entry : attributes.entrySet()) {
 			resForm.setAttribute(entry.getKey(), entry.getValue());
 		}
@@ -273,6 +282,9 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 	}
 
 	private UserModel getUserByMobileNumber(AuthenticationFlowContext context, String mobilePhone) {
+		// Ensure secretKey is set before any error handling that might render a form
+		ensureSecretKey(context);
+
 		UserModel user = null;
 		try {
 			user = SunbirdModelUtils.getUserByNameEmailOrPhone(context, mobilePhone);
@@ -294,6 +306,12 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 			return null;
 		}
 
+		// Check if user is null - invalidUser() can render forms, so secretKey must be set
+		if (user == null) {
+			logger.warn("User not found for mobile/email: " + mobilePhone);
+			return null;
+		}
+
 		if (invalidUser(context, user)) {
 			return null;
 		}
@@ -304,6 +322,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		String emailOrMobile = getEmailOrMobileNumber(context);
 		UserModel user = getUserByMobileNumber(context, emailOrMobile);
 		if (null == user) {
+			context.getEvent().getEvent().setError(Errors.USER_NOT_FOUND);
 			goErrorPage(context, "Oops, Member not found.");
 			return;
 		}
@@ -325,7 +344,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 
 		// Send the key into the User Mobile Phone
 		if (sendOtpByEmailOrSms(context, emailOrMobile, attributes.get(Constants.SESSION_OTP_CODE))) {
-			//SMS is sent successfully, let's save the details in session and return the necessary page.			
+			//SMS is sent successfully, let's save the details in session and return the necessary page.
 			context.getAuthenticationSession().setAuthNote(Constants.SESSION_OTP_CODE, attributes.get(Constants.SESSION_OTP_CODE));
 			context.getAuthenticationSession().setAuthNote(Constants.SESSION_OTP_EXPIRE_TIME, attributes.get(KeycloakSmsAuthenticatorConstants.CONF_PRP_SMS_CODE_TTL));
 			context.getAuthenticationSession().setAuthNote(Constants.ATTEMPTED_EMAIL_OR_MOBILE_NUMBER, emailOrMobile);
@@ -335,6 +354,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 			context.setUser(user);
 			goPage(context, Constants.PAGE_INPUT_OTP, StringUtils.EMPTY, attributes);
 		} else {
+			context.getEvent().getEvent().setError("SMS_SEND_FAILED");
 			goErrorPage(context, "Failed to send out SMS. Please contact Administrator.");
 		}
 	}
@@ -352,6 +372,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		if (sendOtpByEmailOrSms(context, mobileNumber, attributes.get(Constants.SESSION_OTP_CODE))) {
 			goPage(context, Constants.PAGE_INPUT_OTP);
 		} else {
+			context.getEvent().getEvent().setError("SMS_SEND_FAILED");
 			goErrorPage(context, "Failed to send out SMS. Please contact Administrator.");
 		}
 	}
@@ -621,6 +642,9 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 
 	public boolean validateUserAndPassword(AuthenticationFlowContext context,
 			MultivaluedMap<String, String> inputData) {
+		// Ensure secretKey is set before any validation that might render an error form
+		ensureSecretKey(context);
+
 		String username = inputData.getFirst(AuthenticationManager.FORM_USERNAME);
 		if (username == null) {
 			context.getEvent().error(Errors.USER_NOT_FOUND);
@@ -724,5 +748,34 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 			logger.error("PasswordAndOtpAuthenticator:: Exception while decrypting password. Exception: ", e);
 			throw new RuntimeException("Error while decrypting password", e);
 		}
+	}
+
+	/**
+	 * Ensures secretKey exists in the authentication session. Generates a new one if missing.
+	 * This prevents NullPointerException in FreeMarker templates when forms are rendered.
+	 *
+	 * @param context The authentication flow context
+	 */
+	private void ensureSecretKey(AuthenticationFlowContext context) {
+		if (StringUtils.isBlank(context.getAuthenticationSession().getAuthNote(Constants.SECRET_KEY))) {
+			context.getAuthenticationSession().setAuthNote(Constants.SECRET_KEY, generateSecretKey());
+			logger.info("Generated new secret key.");
+		}
+	}
+
+	/**
+	 * Ensures secretKey is available in the authentication session and returns a LoginFormsProvider
+	 * with the secretKey attribute set. This prevents NullPointerException in FreeMarker templates.
+	 *
+	 * @param context The authentication flow context
+	 * @return LoginFormsProvider with secretKey attribute set
+	 */
+	private LoginFormsProvider getLoginFormsProviderWithSecretKey(AuthenticationFlowContext context) {
+		ensureSecretKey(context);
+		LoginFormsProvider formsProvider = context.form();
+		formsProvider.setAttribute(Constants.SECRET_KEY, 
+			context.getAuthenticationSession().getAuthNote(Constants.SECRET_KEY)
+		);
+		return formsProvider;
 	}
 }

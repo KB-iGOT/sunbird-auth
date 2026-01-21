@@ -29,8 +29,32 @@
           </execution>
         </executions>
       </plugin>
+      <plugin>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.2.5</version>
+        <configuration>
+          <argLine>${surefire.argLine}</argLine>
+        </configuration>
+      </plugin>
     </plugins>
   </build>
+  <profiles>
+    <profile>
+      <id>java8</id>
+      <properties />
+    </profile>
+    <profile>
+      <id>java9-plus</id>
+      <properties>
+        <surefire.argLine>--add-opens java.base/java.lang=ALL-UNNAMED
+					--add-opens java.base/java.util=ALL-UNNAMED
+					--add-opens java.base/java.lang.reflect=ALL-UNNAMED
+					--add-opens java.base/java.text=ALL-UNNAMED
+					--add-opens java.desktop/java.awt.font=ALL-UNNAMED
+					--add-opens java.base/sun.nio.ch=ALL-UNNAMED</surefire.argLine>
+      </properties>
+    </profile>
+  </profiles>
   <dependencies>
     <dependency>
       <groupId>org.keycloak</groupId>
@@ -145,6 +169,60 @@
       <artifactId>junit</artifactId>
       <version>4.12</version>
       <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <artifactId>hamcrest-core</artifactId>
+          <groupId>org.hamcrest</groupId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.powermock</groupId>
+      <artifactId>powermock-module-junit4</artifactId>
+      <version>2.0.9</version>
+      <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <artifactId>powermock-module-junit4-common</artifactId>
+          <groupId>org.powermock</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>hamcrest-core</artifactId>
+          <groupId>org.hamcrest</groupId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.powermock</groupId>
+      <artifactId>powermock-api-mockito2</artifactId>
+      <version>2.0.9</version>
+      <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <artifactId>powermock-api-support</artifactId>
+          <groupId>org.powermock</groupId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <version>2.28.2</version>
+      <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <artifactId>byte-buddy</artifactId>
+          <groupId>net.bytebuddy</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>byte-buddy-agent</artifactId>
+          <groupId>net.bytebuddy</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>objenesis</artifactId>
+          <groupId>org.objenesis</groupId>
+        </exclusion>
+      </exclusions>
     </dependency>
   </dependencies>
   <properties>
