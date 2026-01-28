@@ -134,6 +134,9 @@
                                     <div class="field">
                                         <a id="loginp" href="/apis/public/v8/parichay/auth" class="ui fluid button">${msg("loginWithParichay")}</a>
                                     </div>
+                                    <div class="field">
+                                        <a id="loginOil" href="/apis/public/v8/oil/auth" class="ui fluid button">${msg("loginWithOil")}</a>
+                                    </div>
                                     <div id="kc-registration" class="field">
                                         <div class="ui content mt-40 signUpMsg">
                                             <span>${msg("noAccount")} <a class="signUpLink" href="${client.baseUrl}public/signup">${msg("registerHere")}</a></span>
@@ -216,6 +219,9 @@
                                         </div>
                                         <div class="field">
                                             <a id="loginp" href="/apis/public/v8/parichay/auth" class="ui fluid button">${msg("loginWithParichay")}</a>
+                                        </div>
+                                        <div class="field">
+                                            <a id="loginOil" href="/apis/public/v8/oil/auth" class="ui fluid button">${msg("loginWithOil")}</a>
                                         </div>
                                         <div id="kc-registration" class="field">
                                             <div class="ui content mt-40 signUpMsg">
