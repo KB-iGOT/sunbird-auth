@@ -237,7 +237,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
     }
 
     private void goPage(AuthenticationFlowContext context, String page, String errorMsg,
-                        Map<String, String> attributes) {
+            Map<String, String> attributes) {
         LoginFormsProvider resForm = context.form();
         for (Entry<String, String> entry : attributes.entrySet()) {
             resForm.setAttribute(entry.getKey(), entry.getValue());
@@ -314,9 +314,12 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 
         // Send the key into the User Mobile Phone
         if (sendOtpByEmailOrSms(context, emailOrMobile, attributes.get(Constants.SESSION_OTP_CODE))) {
-            //SMS is sent successfully, let's save the details in session and return the necessary page.
-            context.getAuthenticationSession().setAuthNote(Constants.SESSION_OTP_CODE, attributes.get(Constants.SESSION_OTP_CODE));
-            context.getAuthenticationSession().setAuthNote(Constants.SESSION_OTP_EXPIRE_TIME, attributes.get(KeycloakSmsAuthenticatorConstants.CONF_PRP_SMS_CODE_TTL));
+            // SMS is sent successfully, let's save the details in session and return the
+            // necessary page.
+            context.getAuthenticationSession().setAuthNote(Constants.SESSION_OTP_CODE,
+                    attributes.get(Constants.SESSION_OTP_CODE));
+            context.getAuthenticationSession().setAuthNote(Constants.SESSION_OTP_EXPIRE_TIME,
+                    attributes.get(KeycloakSmsAuthenticatorConstants.CONF_PRP_SMS_CODE_TTL));
             context.getAuthenticationSession().setAuthNote(Constants.ATTEMPTED_EMAIL_OR_MOBILE_NUMBER, emailOrMobile);
             context.getAuthenticationSession().setAuthNote(Details.REDIRECT_URI, redirectUri);
 
@@ -532,16 +535,20 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
         credentials.setValue(code);
         credentials.setNote(Constants.TTL, String.valueOf(expiringAt));
 
-//        context.getSession().userCredentialManager().updateCredential(context.getRealm(), context.getUser(),
-//                credentials);
-        new UserCredentialManager(context.getSession(), context.getRealm(), context.getUser()).updateCredential(credentials);
+        // context.getSession().userCredentialManager().updateCredential(context.getRealm(),
+        // context.getUser(),
+        // credentials);
+        new UserCredentialManager(context.getSession(), context.getRealm(), context.getUser())
+                .updateCredential(credentials);
 
         credentials = new UserCredentialModel();
         credentials.setType(KeycloakSmsAuthenticatorConstants.USR_CRED_MDL_SMS_EXP_TIME);
         credentials.setValue((expiringAt).toString());
-//        context.getSession().userCredentialManager().updateCredential(context.getRealm(), context.getUser(),
-//                credentials);
-        new UserCredentialManager(context.getSession(), context.getRealm(), context.getUser()).updateCredential(credentials);
+        // context.getSession().userCredentialManager().updateCredential(context.getRealm(),
+        // context.getUser(),
+        // credentials);
+        new UserCredentialManager(context.getSession(), context.getRealm(), context.getUser())
+                .updateCredential(credentials);
     }
 
     private CODE_STATUS validateCodeUsingDB(AuthenticationFlowContext context) {
@@ -551,11 +558,15 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
         String enteredCode = formData.getFirst(KeycloakSmsAuthenticatorConstants.ANSW_SMS_CODE);
         KeycloakSession session = context.getSession();
 
-//        List<CredentialModel> codeCreds = session.userCredentialManager().getStoredCredentialsByTypeStream(context.getRealm(),
-//                context.getUser(), KeycloakSmsAuthenticatorConstants.USR_CRED_MDL_SMS_CODE).collect(Collectors.toList());
+        // List<CredentialModel> codeCreds =
+        // session.userCredentialManager().getStoredCredentialsByTypeStream(context.getRealm(),
+        // context.getUser(),
+        // KeycloakSmsAuthenticatorConstants.USR_CRED_MDL_SMS_CODE).collect(Collectors.toList());
 
         List<CredentialModel> codeCreds = new UserCredentialManager(session, context.getRealm(),
-                context.getUser()).getStoredCredentialsByTypeStream(KeycloakSmsAuthenticatorConstants.USR_CRED_MDL_SMS_CODE).collect(Collectors.toList());
+                context.getUser())
+                .getStoredCredentialsByTypeStream(KeycloakSmsAuthenticatorConstants.USR_CRED_MDL_SMS_CODE)
+                .collect(Collectors.toList());
 
         if (!CollectionUtils.isNullOrEmpty(codeCreds)) {
             CredentialModel expectedCode = codeCreds.get(0);
@@ -563,10 +574,14 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
         }
 
         if (result == CODE_STATUS.VALID) {
-//            List<CredentialModel> timeCreds = session.userCredentialManager().getStoredCredentialsByTypeStream(context.getRealm(),
-//                    context.getUser(), KeycloakSmsAuthenticatorConstants.USR_CRED_MDL_SMS_EXP_TIME).collect(Collectors.toList());
+            // List<CredentialModel> timeCreds =
+            // session.userCredentialManager().getStoredCredentialsByTypeStream(context.getRealm(),
+            // context.getUser(),
+            // KeycloakSmsAuthenticatorConstants.USR_CRED_MDL_SMS_EXP_TIME).collect(Collectors.toList());
             List<CredentialModel> timeCreds = new UserCredentialManager(session, context.getRealm(),
-                    context.getUser()).getStoredCredentialsByTypeStream(KeycloakSmsAuthenticatorConstants.USR_CRED_MDL_SMS_EXP_TIME).collect(Collectors.toList());
+                    context.getUser())
+                    .getStoredCredentialsByTypeStream(KeycloakSmsAuthenticatorConstants.USR_CRED_MDL_SMS_EXP_TIME)
+                    .collect(Collectors.toList());
 
             if (!CollectionUtils.isNullOrEmpty(timeCreds)) {
                 CredentialModel expTimeString = timeCreds.get(0);
@@ -579,13 +594,20 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
         }
 
         if (result == CODE_STATUS.VALID) {
-//            session.userCredentialManager().removeStoredCredential(context.getRealm(), context.getUser(),
-//                    KeycloakSmsAuthenticatorConstants.USR_CRED_MDL_SMS_CODE);
-//            session.userCredentialManager().removeStoredCredential(context.getRealm(), context.getUser(),
-//                    KeycloakSmsAuthenticatorConstants.USR_CRED_MDL_SMS_EXP_TIME);
-            UserCredentialManager credManager = new UserCredentialManager(session, context.getRealm(), context.getUser());
-            List<CredentialModel> smsCodeCreds = credManager.getStoredCredentialsByTypeStream(KeycloakSmsAuthenticatorConstants.USR_CRED_MDL_SMS_CODE).collect(Collectors.toList());
-            List<CredentialModel> expTimeCreds = credManager.getStoredCredentialsByTypeStream(KeycloakSmsAuthenticatorConstants.USR_CRED_MDL_SMS_EXP_TIME).collect(Collectors.toList());
+            // session.userCredentialManager().removeStoredCredential(context.getRealm(),
+            // context.getUser(),
+            // KeycloakSmsAuthenticatorConstants.USR_CRED_MDL_SMS_CODE);
+            // session.userCredentialManager().removeStoredCredential(context.getRealm(),
+            // context.getUser(),
+            // KeycloakSmsAuthenticatorConstants.USR_CRED_MDL_SMS_EXP_TIME);
+            UserCredentialManager credManager = new UserCredentialManager(session, context.getRealm(),
+                    context.getUser());
+            List<CredentialModel> smsCodeCreds = credManager
+                    .getStoredCredentialsByTypeStream(KeycloakSmsAuthenticatorConstants.USR_CRED_MDL_SMS_CODE)
+                    .collect(Collectors.toList());
+            List<CredentialModel> expTimeCreds = credManager
+                    .getStoredCredentialsByTypeStream(KeycloakSmsAuthenticatorConstants.USR_CRED_MDL_SMS_EXP_TIME)
+                    .collect(Collectors.toList());
 
             if (!smsCodeCreds.isEmpty()) {
                 credManager.removeStoredCredentialById(smsCodeCreds.get(0).getId());
@@ -626,8 +648,9 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
     }
 
     public boolean validateUserAndPassword(AuthenticationFlowContext context,
-                                           MultivaluedMap<String, String> inputData) {
+            MultivaluedMap<String, String> inputData) {
         String username = inputData.getFirst(AuthenticationManager.FORM_USERNAME);
+        logger.info("Trying the validation code check in validateUserAndPassword: " + username);
         if (username == null) {
             context.getEvent().error(Errors.USER_NOT_FOUND);
             Response challengeResponse = challenge(context, Messages.INVALID_USER);
@@ -650,12 +673,14 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
             // Could happen during federation import
             if (mde.getDuplicateFieldName() != null && mde.getDuplicateFieldName().equals(UserModel.EMAIL)) {
                 context.getEvent().getEvent().setError(Errors.EMAIL_IN_USE);
-                //setDuplicateUserChallenge(context, Errors.EMAIL_IN_USE, Messages.EMAIL_EXISTS,
-                //		AuthenticationFlowError.INVALID_USER);
+                // setDuplicateUserChallenge(context, Errors.EMAIL_IN_USE,
+                // Messages.EMAIL_EXISTS,
+                // AuthenticationFlowError.INVALID_USER);
             } else {
                 context.getEvent().getEvent().setError(Errors.USERNAME_IN_USE);
-                //setDuplicateUserChallenge(context, Errors.USERNAME_IN_USE, Messages.USERNAME_EXISTS,
-                //		AuthenticationFlowError.INVALID_USER);
+                // setDuplicateUserChallenge(context, Errors.USERNAME_IN_USE,
+                // Messages.USERNAME_EXISTS,
+                // AuthenticationFlowError.INVALID_USER);
             }
 
             return false;
@@ -696,7 +721,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
     }
 
     public boolean validatePassword(AuthenticationFlowContext context, UserModel user,
-                                    MultivaluedMap<String, String> inputData) {
+            MultivaluedMap<String, String> inputData) {
         String encryptedPassword = inputData.getFirst(CredentialRepresentation.PASSWORD);
         String secretKey = context.getAuthenticationSession().getAuthNote(Constants.SECRET_KEY);
         String iv = inputData.getFirst(Constants.IV);
@@ -706,7 +731,8 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
         List<CredentialInput> credentials = new LinkedList<>();
         credentials.add(UserCredentialModel.password(decryptedPassword));
 
-        boolean isValid = new UserCredentialManager(context.getSession(), context.getRealm(), user).isValid(credentials);
+        boolean isValid = new UserCredentialManager(context.getSession(), context.getRealm(), user)
+                .isValid(credentials);
 
         return decryptedPassword != null && !decryptedPassword.isEmpty() && isValid;
     }
