@@ -61,76 +61,80 @@ public class BruteForceUserAdminResourceProvider implements AdminRealmResourcePr
         @Path("brute-force-user")
         @Produces(MediaType.APPLICATION_JSON)
         public Response getBruteForceUsers(@QueryParam("search") String search,
-                                        @QueryParam("first") @DefaultValue("0") int first,
-                                        @QueryParam("max") @DefaultValue("20") int max,
-                                        @QueryParam("briefRepresentation") @DefaultValue("false") boolean briefRepresentation,
-                                        @QueryParam("q") String q) {
-            
-            logger.debug("BruteForceUserResource: getBruteForceUsers called");
-            logger.debug("Parameters: search=" + search + ", q=" + q + ", first=" + first + ", max=" + max + ", brief=" + briefRepresentation);
-            
+                @QueryParam("first") @DefaultValue("0") int first,
+                @QueryParam("max") @DefaultValue("20") int max,
+                @QueryParam("briefRepresentation") @DefaultValue("false") boolean briefRepresentation,
+                @QueryParam("q") String q) {
+
+            logger.info("BruteForceUserResource: getBruteForceUsers called");
+            logger.info("Parameters: search=" + search + ", q=" + q + ", first=" + first + ", max=" + max + ", brief="
+                    + briefRepresentation);
+
             RealmModel realm = session.getContext().getRealm();
-            logger.debug("Realm: " + (realm != null ? realm.getName() : "NULL"));
-            
+            logger.info("Realm: " + (realm != null ? realm.getName() : "NULL"));
+
             if (search == null || search.trim().isEmpty()) {
                 logger.warn("Search term is empty, returning empty list");
                 return Response.ok(List.of()).build();
             }
 
             String trimmedSearch = search.trim();
-            logger.debug("Searching for users with search term: '" + trimmedSearch + "'");
+            logger.info("Searching for users with search term: '" + trimmedSearch + "'");
 
             List<User> users = null;
-            
+
             try {
                 // Method 1: Try UserService first
-                logger.debug("Step 1: Trying UserService.getByUsername()");
+                logger.info("Step 1: Trying UserService.getByUsername()");
                 if (userService != null) {
                     users = userService.getByUsername(trimmedSearch);
-                    logger.debug("UserService.getByUsername result: " + (users != null ? users.size() : "NULL") + " users");
+                    logger.info(
+                            "UserService.getByUsername result: " + (users != null ? users.size() : "NULL") + " users");
                 } else {
                     logger.warn("UserService is null, skipping");
                 }
-                
+
                 // Method 2: Try UserSearchService by email
                 if (users == null || users.isEmpty()) {
-                    logger.debug("Step 2: Trying UserSearchService.getUserByKey('email')");
+                    logger.info("Step 2: Trying UserSearchService.getUserByKey('email')");
                     try {
                         users = UserSearchService.getUserByKey("email", trimmedSearch);
-                        logger.debug("getUserByKey('email') result: " + (users != null ? users.size() : "NULL") + " users");
+                        logger.info(
+                                "getUserByKey('email') result: " + (users != null ? users.size() : "NULL") + " users");
                     } catch (Exception e) {
                         logger.error("Error in UserSearchService.getUserByKey('email'): " + e.getMessage(), e);
                     }
                 }
-                
+
                 // Method 3: Try UserSearchService by username
                 if (users == null || users.isEmpty()) {
-                    logger.debug("Step 3: Trying UserSearchService.getUserByKey('userName')");
+                    logger.info("Step 3: Trying UserSearchService.getUserByKey('userName')");
                     try {
                         users = UserSearchService.getUserByKey("userName", trimmedSearch);
-                        logger.debug("getUserByKey('userName') result: " + (users != null ? users.size() : "NULL") + " users");
+                        logger.info("getUserByKey('userName') result: " + (users != null ? users.size() : "NULL")
+                                + " users");
                     } catch (Exception e) {
                         logger.error("Error in UserSearchService.getUserByKey('userName'): " + e.getMessage(), e);
                     }
                 }
-                
+
             } catch (Exception e) {
                 logger.error("Exception during user search: " + e.getMessage(), e);
                 return Response.serverError().entity(Map.of("error", "Search failed: " + e.getMessage())).build();
             }
-            
+
             if (users == null) {
-                logger.warn("Users list is null, initializing empty list");
+                logger.info("Users list is null, initializing empty list");
                 users = List.of();
             }
-            
-            logger.debug("Total users found before conversion: " + users.size());
-            
+
+            logger.info("Total users found before conversion: " + users.size());
+
             // Convert to UserRepresentation
             List<UserRepresentation> userReps;
             try {
                 userReps = users.stream()
-                        .peek(user -> logger.debug("Processing user: " + (user != null ? user.getUsername() : "NULL")))
+                        .peek(user -> logger.info("Processing user: " + (user != null ? user.getUsername() : "NULL")))
                         .map(user -> {
                             UserRepresentation rep = new UserRepresentation();
                             rep.setId(user.getId());
@@ -140,7 +144,7 @@ public class BruteForceUserAdminResourceProvider implements AdminRealmResourcePr
                             rep.setEmail(user.getEmail());
                             rep.setEnabled(user.isEnabled());
                             rep.setEmailVerified(user.isEmailVerified());
-                            
+
                             if (!briefRepresentation) {
                                 // Add more detailed information if not brief
                                 Map<String, List<String>> attributes = new HashMap<>();
@@ -152,21 +156,21 @@ public class BruteForceUserAdminResourceProvider implements AdminRealmResourcePr
                                 }
                                 rep.setAttributes(attributes);
                             }
-                            
+
                             return rep;
                         })
                         .skip(first)
                         .limit(max)
                         .collect(Collectors.toList());
-                        
-                logger.debug("Successfully converted " + userReps.size() + " users to UserRepresentation");
-                logger.debug("Final response size: " + userReps.size() + " users");
-                
+
+                logger.info("Successfully converted " + userReps.size() + " users to UserRepresentation");
+                logger.info("Final response size: " + userReps.size() + " users");
+
             } catch (Exception e) {
                 logger.error("Exception during user conversion: " + e.getMessage(), e);
                 return Response.serverError().entity(Map.of("error", "Conversion failed: " + e.getMessage())).build();
             }
-
+            logger.info("keycloak_24 changes check 2: " + userReps.size());
             return Response.ok(userReps).build();
         }
 
@@ -177,7 +181,7 @@ public class BruteForceUserAdminResourceProvider implements AdminRealmResourcePr
             logger.debug("ROOT ENDPOINT CALLED!");
             Map<String, Object> response = new HashMap<>();
             response.put("message", "BruteForce Resource Provider is working!");
-            response.put("available_endpoints", new String[]{"test", "brute-force-users"});
+            response.put("available_endpoints", new String[] { "test", "brute-force-users" });
             response.put("timestamp", System.currentTimeMillis());
             return Response.ok(response).build();
         }

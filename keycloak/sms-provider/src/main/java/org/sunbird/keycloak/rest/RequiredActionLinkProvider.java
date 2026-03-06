@@ -19,6 +19,7 @@ import org.keycloak.authentication.actiontoken.execactions.ExecuteActionsActionT
 import org.keycloak.common.util.Time;
 import org.keycloak.models.ClientModel;
 import org.keycloak.models.KeycloakSession;
+import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserModel;
 import org.keycloak.models.utils.KeycloakModelUtils;
 import org.keycloak.protocol.oidc.utils.RedirectUtils;
@@ -47,14 +48,19 @@ public class RequiredActionLinkProvider implements RealmResourceProvider {
     }
 
     /**
-     * Generate user required action link. The supported required actions links are for update
+     * Generate user required action link. The supported required actions links are
+     * for update
      * password and verify email.
      *
-     * @param request Request to generate required action link. The request contains following
-     *        attributes: redirectUri: Redirect URI after performing required action clientId: Client
-     *        ID requiredAction: Either UPDATE_PASSWORD or VERIFY_EMAIL userName: User name
+     * @param request Request to generate required action link. The request contains
+     *                following
+     *                attributes: redirectUri: Redirect URI after performing
+     *                required action clientId: Client
+     *                ID requiredAction: Either UPDATE_PASSWORD or VERIFY_EMAIL
+     *                userName: User name
      *
-     * @return Response containing generated required action link or error in case of failure.
+     * @return Response containing generated required action link or error in case
+     *         of failure.
      */
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
@@ -89,15 +95,19 @@ public class RequiredActionLinkProvider implements RealmResourceProvider {
 
             token.setRedirectUri(redirectUri);
             builder.queryParam(Constants.KEY,
-                    token.serialize(session, session.getContext().getRealm(), session.getContext().getUri()));
-            String link = builder.build(session.getContext().getRealm().getName()).toString();
+                    token.serialize(session, getRealm(), session.getContext().getUri()));
+            String link = builder.build(getRealm().getName()).toString();
 
             Map<String, Object> response = new HashMap<>();
             response.put(Constants.LINK, link);
             return Response.ok(response).build();
+        } catch (WebApplicationException e) {
+            // Rethrow WebApplicationException as-is (e.g., from checkRealmAdminAccess)
+            throw e;
         } catch (Exception e) {
-            // Fix: Wrap ErrorResponse in WebApplicationException
-            throw new WebApplicationException(ErrorResponse.error(Constants.ERROR_CREATE_LINK, Status.INTERNAL_SERVER_ERROR));
+            // Wrap other exceptions in WebApplicationException
+            throw new WebApplicationException(
+                    ErrorResponse.error(Constants.ERROR_CREATE_LINK, Status.INTERNAL_SERVER_ERROR));
         }
     }
 
@@ -109,7 +119,7 @@ public class RequiredActionLinkProvider implements RealmResourceProvider {
                             userName, Constants.USERNAME), Status.BAD_REQUEST));
         }
         UserModel user = KeycloakModelUtils.findUserByNameOrEmail(session,
-                session.getContext().getRealm(), userName);
+                getRealm(), userName);
 
         if (user == null) {
             throw new WebApplicationException(
@@ -167,6 +177,21 @@ public class RequiredActionLinkProvider implements RealmResourceProvider {
         return expirationInSecs;
     }
 
+    private RealmModel getRealm() {
+        if (session == null || session.getContext() == null) {
+            logger.error("Session or context is null");
+            throw new WebApplicationException(
+                    ErrorResponse.error("Session not initialized", Status.INTERNAL_SERVER_ERROR));
+        }
+        RealmModel realm = session.getContext().getRealm();
+        if (realm == null) {
+            logger.error("Realm is null from session context");
+            throw new WebApplicationException(
+                    ErrorResponse.error("Realm not found", Status.INTERNAL_SERVER_ERROR));
+        }
+        return realm;
+    }
+
     private void checkRealmAdminAccess() {
         logger.debug("RestResourceProvider: checkRealmAdminAccess called");
         AuthResult authResult = new AppAuthManager.BearerTokenAuthenticator(session).authenticate();
@@ -199,7 +224,7 @@ public class RequiredActionLinkProvider implements RealmResourceProvider {
                     ErrorResponse.error(MessageFormat.format(Constants.ERROR_MANDATORY_PARAM_MISSING,
                             clientId, Constants.CLIENT_ID), Status.BAD_REQUEST));
         }
-        ClientModel client = session.getContext().getRealm().getClientByClientId(clientId);
+        ClientModel client = getRealm().getClientByClientId(clientId);
         if (client == null) {
             throw new WebApplicationException(
                     ErrorResponse.error(MessageFormat.format(Constants.ERROR_INVALID_PARAMETER_VALUE,

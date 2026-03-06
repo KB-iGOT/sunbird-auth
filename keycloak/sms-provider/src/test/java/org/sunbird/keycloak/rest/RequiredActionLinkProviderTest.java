@@ -13,6 +13,8 @@ import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.Status;
 import jakarta.ws.rs.core.UriInfo;
 import jakarta.ws.rs.core.UriBuilder;
+import jakarta.ws.rs.ext.RuntimeDelegate;
+import jakarta.ws.rs.core.MediaType;
 import org.junit.BeforeClass;
 import org.junit.Before;
 import org.junit.Test;
@@ -41,12 +43,12 @@ import org.powermock.modules.junit4.PowerMockRunner;
 import org.sunbird.keycloak.utils.Constants;
 
 @RunWith(PowerMockRunner.class)
-@PrepareForTest({RequiredActionLinkProviderFactory.class, KeycloakSession.class,
-  KeycloakContext.class, KeycloakModelUtils.class, RealmModel.class, RedirectUtils.class,
-  AppAuthManager.class, AppAuthManager.BearerTokenAuthenticator.class, RequiredActionLinkProvider.class, 
-  UriInfo.class, AccessToken.class, Access.class, AuthResult.class, LoginActionsService.class,
-  ExecuteActionsActionToken.class})
-@PowerMockIgnore({"javax.management.*", "javax.net.ssl.*", "javax.security.*", "jakarta.ws.rs.*"})
+@PrepareForTest({ RequiredActionLinkProviderFactory.class, KeycloakSession.class,
+    KeycloakContext.class, KeycloakModelUtils.class, RealmModel.class, RedirectUtils.class,
+    AppAuthManager.class, AppAuthManager.BearerTokenAuthenticator.class, RequiredActionLinkProvider.class,
+    UriInfo.class, AccessToken.class, Access.class, AuthResult.class, LoginActionsService.class,
+    ExecuteActionsActionToken.class })
+@PowerMockIgnore({ "javax.management.*", "javax.net.ssl.*", "javax.security.*", "jakarta.ws.rs.*" })
 public class RequiredActionLinkProviderTest {
 
   private static KeycloakSession session;
@@ -63,6 +65,7 @@ public class RequiredActionLinkProviderTest {
 
   @BeforeClass
   public static void setUpClass() throws Exception {
+    RuntimeDelegate.setInstance(new MockRuntimeDelegate());
     session = PowerMockito.mock(KeycloakSession.class);
     context = PowerMockito.mock(KeycloakContext.class);
     model = PowerMockito.mock(RealmModel.class);
@@ -86,20 +89,27 @@ public class RequiredActionLinkProviderTest {
     request.put(Constants.CLIENT_ID, "master");
     request.put(Constants.REQUIRED_ACTION, "UPDATE_PASSWORD");
     request.put(Constants.USERNAME, "amit");
+
   }
 
   @Test
   public void testCheckRealmAdminAccessForUnAuthorized() throws Exception {
     PowerMockito.whenNew(AppAuthManager.BearerTokenAuthenticator.class)
-      .withArguments(session).thenReturn(authenticator);
+        .withArguments(session).thenReturn(authenticator);
     PowerMockito.when(authenticator.authenticate()).thenReturn(null);
-    
+
     RequiredActionLinkProvider provider = new RequiredActionLinkProvider(session);
 
     try {
       provider.generateRequiredActionLink(request);
       fail("Expected WebApplicationException");
     } catch (WebApplicationException ex) {
+      System.out.println("DEBUG: Status=" + ex.getResponse().getStatus());
+      System.out.println("DEBUG: Entity=" + ex.getResponse().getEntity());
+      System.out.println("DEBUG: Message=" + ex.getMessage());
+      if (ex.getCause() != null) {
+        System.out.println("DEBUG: Cause=" + ex.getCause().getClass().getName() + ": " + ex.getCause().getMessage());
+      }
       assertEquals(Status.UNAUTHORIZED.getStatusCode(), ex.getResponse().getStatus());
       ErrorRepresentation error = (ErrorRepresentation) ex.getResponse().getEntity();
       assertEquals(Constants.ERROR_NOT_AUTHORIZED, error.getErrorMessage());
@@ -109,12 +119,12 @@ public class RequiredActionLinkProviderTest {
   @Test
   public void testCheckRealmAdminAccessForForbidden() throws Exception {
     PowerMockito.whenNew(AppAuthManager.BearerTokenAuthenticator.class)
-      .withArguments(session).thenReturn(authenticator);
+        .withArguments(session).thenReturn(authenticator);
     PowerMockito.when(authenticator.authenticate()).thenReturn(authResult);
-    
+
     AccessToken accessToken = PowerMockito.mock(AccessToken.class);
     Access access = PowerMockito.mock(Access.class);
-    
+
     PowerMockito.when(authResult.getToken()).thenReturn(accessToken);
     PowerMockito.when(accessToken.getRealmAccess()).thenReturn(access);
     PowerMockito.when(access.isUserInRole(Constants.ADMIN)).thenReturn(false);
@@ -134,7 +144,7 @@ public class RequiredActionLinkProviderTest {
   @Test
   public void testUsernameMandatoryCheck() throws Exception {
     setupValidAuth();
-    
+
     request.put(Constants.USERNAME, null);
     RequiredActionLinkProvider provider = new RequiredActionLinkProvider(session);
 
@@ -151,7 +161,7 @@ public class RequiredActionLinkProviderTest {
   @Test
   public void testUsernameEmptyCheck() throws Exception {
     setupValidAuth();
-    
+
     request.put(Constants.USERNAME, "");
     RequiredActionLinkProvider provider = new RequiredActionLinkProvider(session);
 
@@ -166,14 +176,14 @@ public class RequiredActionLinkProviderTest {
   @Test
   public void testInvalidUserNameCheck() throws Exception {
     setupValidAuth();
-    
+
     String userName = "nonexistent";
     request.put(Constants.USERNAME, userName);
-    
+
     PowerMockito.mockStatic(KeycloakModelUtils.class);
     PowerMockito.when(KeycloakModelUtils.findUserByNameOrEmail(session, model, userName))
-      .thenReturn(null);
-    
+        .thenReturn(null);
+
     RequiredActionLinkProvider provider = new RequiredActionLinkProvider(session);
 
     try {
@@ -190,7 +200,7 @@ public class RequiredActionLinkProviderTest {
   public void testUserDisabledCheck() throws Exception {
     setupValidAuth();
     setupValidUser(false);
-    
+
     RequiredActionLinkProvider provider = new RequiredActionLinkProvider(session);
 
     try {
@@ -207,7 +217,7 @@ public class RequiredActionLinkProviderTest {
   public void testClientIdMandatoryCheck() throws Exception {
     setupValidAuth();
     setupValidUser(true);
-    
+
     request.put(Constants.CLIENT_ID, null);
     RequiredActionLinkProvider provider = new RequiredActionLinkProvider(session);
 
@@ -223,7 +233,7 @@ public class RequiredActionLinkProviderTest {
   public void testClientIdEmptyCheck() throws Exception {
     setupValidAuth();
     setupValidUser(true);
-    
+
     request.put(Constants.CLIENT_ID, "");
     RequiredActionLinkProvider provider = new RequiredActionLinkProvider(session);
 
@@ -239,10 +249,10 @@ public class RequiredActionLinkProviderTest {
   public void testInvalidClientIdCheck() throws Exception {
     setupValidAuth();
     setupValidUser(true);
-    
+
     String clientId = "nonexistent";
     request.put(Constants.CLIENT_ID, clientId);
-    
+
     PowerMockito.when(model.getClientByClientId(clientId)).thenReturn(null);
     RequiredActionLinkProvider provider = new RequiredActionLinkProvider(session);
 
@@ -260,13 +270,13 @@ public class RequiredActionLinkProviderTest {
   public void testClientDisabledCheck() throws Exception {
     setupValidAuth();
     setupValidUser(true);
-    
+
     String clientId = "disabled-client";
     request.put(Constants.CLIENT_ID, clientId);
-    
+
     PowerMockito.when(model.getClientByClientId(clientId)).thenReturn(client);
     PowerMockito.when(client.isEnabled()).thenReturn(false);
-    
+
     RequiredActionLinkProvider provider = new RequiredActionLinkProvider(session);
 
     try {
@@ -284,14 +294,14 @@ public class RequiredActionLinkProviderTest {
     setupValidAuth();
     setupValidUser(true);
     setupValidClient();
-    
+
     String redirectUri = "invalid-uri";
     request.put(Constants.REDIRECT_URI, redirectUri);
-    
+
     PowerMockito.mockStatic(RedirectUtils.class);
     PowerMockito.when(RedirectUtils.verifyRedirectUri(session, redirectUri, client))
-      .thenReturn(null);
-    
+        .thenReturn(null);
+
     RequiredActionLinkProvider provider = new RequiredActionLinkProvider(session);
 
     try {
@@ -310,7 +320,7 @@ public class RequiredActionLinkProviderTest {
     setupValidUser(true);
     setupValidClient();
     setupValidRedirectUri();
-    
+
     request.put(Constants.REQUIRED_ACTION, null);
     RequiredActionLinkProvider provider = new RequiredActionLinkProvider(session);
 
@@ -328,7 +338,7 @@ public class RequiredActionLinkProviderTest {
     setupValidUser(true);
     setupValidClient();
     setupValidRedirectUri();
-    
+
     String invalidAction = "INVALID_ACTION";
     request.put(Constants.REQUIRED_ACTION, invalidAction);
     RequiredActionLinkProvider provider = new RequiredActionLinkProvider(session);
@@ -349,7 +359,7 @@ public class RequiredActionLinkProviderTest {
     setupValidUser(true);
     setupValidClient();
     setupValidRedirectUri();
-    
+
     request.put(Constants.EXPIRATION_IN_SECS, "invalid");
     RequiredActionLinkProvider provider = new RequiredActionLinkProvider(session);
 
@@ -365,10 +375,10 @@ public class RequiredActionLinkProviderTest {
   public void testSuccessfulLinkGenerationWithUpdatePassword() throws Exception {
     setupSuccessfulScenario();
     request.put(Constants.REQUIRED_ACTION, "UPDATE_PASSWORD");
-    
+
     RequiredActionLinkProvider provider = new RequiredActionLinkProvider(session);
     Response response = provider.generateRequiredActionLink(request);
-    
+
     assertEquals(200, response.getStatus());
     @SuppressWarnings("unchecked")
     Map<String, Object> responseEntity = (Map<String, Object>) response.getEntity();
@@ -379,10 +389,10 @@ public class RequiredActionLinkProviderTest {
   public void testSuccessfulLinkGenerationWithVerifyEmail() throws Exception {
     setupSuccessfulScenario();
     request.put(Constants.REQUIRED_ACTION, "VERIFY_EMAIL");
-    
+
     RequiredActionLinkProvider provider = new RequiredActionLinkProvider(session);
     Response response = provider.generateRequiredActionLink(request);
-    
+
     assertEquals(200, response.getStatus());
     @SuppressWarnings("unchecked")
     Map<String, Object> responseEntity = (Map<String, Object>) response.getEntity();
@@ -393,10 +403,10 @@ public class RequiredActionLinkProviderTest {
   public void testSuccessfulLinkGenerationWithCustomExpiration() throws Exception {
     setupSuccessfulScenario();
     request.put(Constants.EXPIRATION_IN_SECS, "7200");
-    
+
     RequiredActionLinkProvider provider = new RequiredActionLinkProvider(session);
     Response response = provider.generateRequiredActionLink(request);
-    
+
     assertEquals(200, response.getStatus());
   }
 
@@ -404,10 +414,10 @@ public class RequiredActionLinkProviderTest {
   public void testSuccessfulLinkGenerationWithoutRedirectUri() throws Exception {
     setupSuccessfulScenario();
     request.remove(Constants.REDIRECT_URI);
-    
+
     RequiredActionLinkProvider provider = new RequiredActionLinkProvider(session);
     Response response = provider.generateRequiredActionLink(request);
-    
+
     assertEquals(200, response.getStatus());
   }
 
@@ -417,12 +427,12 @@ public class RequiredActionLinkProviderTest {
     setupValidUser(true);
     setupValidClient();
     setupValidRedirectUri();
-    
+
     // Mock LoginActionsService to throw exception
     PowerMockito.mockStatic(LoginActionsService.class);
     PowerMockito.when(LoginActionsService.actionTokenProcessor(uriInfo))
-      .thenThrow(new RuntimeException("Test exception"));
-    
+        .thenThrow(new RuntimeException("Test exception"));
+
     RequiredActionLinkProvider provider = new RequiredActionLinkProvider(session);
 
     try {
@@ -437,12 +447,12 @@ public class RequiredActionLinkProviderTest {
 
   private void setupValidAuth() throws Exception {
     PowerMockito.whenNew(AppAuthManager.BearerTokenAuthenticator.class)
-      .withArguments(session).thenReturn(authenticator);
+        .withArguments(session).thenReturn(authenticator);
     PowerMockito.when(authenticator.authenticate()).thenReturn(authResult);
-    
+
     AccessToken accessToken = PowerMockito.mock(AccessToken.class);
     Access access = PowerMockito.mock(Access.class);
-    
+
     PowerMockito.when(authResult.getToken()).thenReturn(accessToken);
     PowerMockito.when(accessToken.getRealmAccess()).thenReturn(access);
     PowerMockito.when(access.isUserInRole(Constants.ADMIN)).thenReturn(true);
@@ -451,7 +461,7 @@ public class RequiredActionLinkProviderTest {
   private void setupValidUser(boolean enabled) {
     PowerMockito.mockStatic(KeycloakModelUtils.class);
     PowerMockito.when(KeycloakModelUtils.findUserByNameOrEmail(session, model, "amit"))
-      .thenReturn(userModel);
+        .thenReturn(userModel);
     PowerMockito.when(userModel.isEnabled()).thenReturn(enabled);
     PowerMockito.when(userModel.getId()).thenReturn("user-id");
   }
@@ -464,7 +474,7 @@ public class RequiredActionLinkProviderTest {
   private void setupValidRedirectUri() {
     PowerMockito.mockStatic(RedirectUtils.class);
     PowerMockito.when(RedirectUtils.verifyRedirectUri(session, "/login", client))
-      .thenReturn("/login");
+        .thenReturn("/login");
   }
 
   private void setupSuccessfulScenario() throws Exception {
@@ -472,7 +482,7 @@ public class RequiredActionLinkProviderTest {
     setupValidUser(true);
     setupValidClient();
     setupValidRedirectUri();
-    
+
     // Mock successful token creation
     PowerMockito.mockStatic(LoginActionsService.class);
     UriBuilder uriBuilder = PowerMockito.mock(UriBuilder.class);
@@ -480,5 +490,94 @@ public class RequiredActionLinkProviderTest {
     PowerMockito.when(uriBuilder.queryParam(Mockito.anyString(), Mockito.anyString())).thenReturn(uriBuilder);
     PowerMockito.when(uriBuilder.build("test-realm")).thenReturn(java.net.URI.create("http://test.com/link"));
     PowerMockito.when(model.getName()).thenReturn("test-realm");
+  }
+
+  public static class MockRuntimeDelegate extends RuntimeDelegate {
+    @Override
+    public Response.ResponseBuilder createResponseBuilder() {
+      Response.ResponseBuilder builder = Mockito.mock(Response.ResponseBuilder.class);
+      final int[] statusHolder = new int[1];
+      final Object[] entityHolder = new Object[1];
+
+      // Handle int status code
+      Mockito.when(builder.status(Mockito.anyInt())).thenAnswer(inv -> {
+        statusHolder[0] = inv.getArgument(0);
+        return builder;
+      });
+      // Handle Status enum - must come before StatusType to match more specific type
+      // first
+      Mockito.when(builder.status(org.mockito.ArgumentMatchers.any(Response.Status.class))).thenAnswer(inv -> {
+        Response.Status status = inv.getArgument(0);
+        statusHolder[0] = status.getStatusCode();
+        return builder;
+      });
+      // Handle StatusType interface (parent of Status enum)
+      Mockito.when(builder.status(org.mockito.ArgumentMatchers.any(Response.StatusType.class))).thenAnswer(inv -> {
+        Response.StatusType status = inv.getArgument(0);
+        statusHolder[0] = status.getStatusCode();
+        return builder;
+      });
+      Mockito.when(builder.entity(Mockito.any())).thenAnswer(inv -> {
+        entityHolder[0] = inv.getArgument(0);
+        return builder;
+      });
+      Mockito.when(builder.type(Mockito.any(MediaType.class))).thenReturn(builder);
+      Mockito.when(builder.type(Mockito.anyString())).thenReturn(builder);
+
+      Mockito.when(builder.build()).thenAnswer(inv -> {
+        Response response = Mockito.mock(Response.class);
+        Mockito.when(response.getStatus()).thenReturn(statusHolder[0]);
+        Mockito.when(response.getEntity()).thenReturn(entityHolder[0]);
+        return response;
+      });
+      return builder;
+    }
+
+    @Override
+    public UriBuilder createUriBuilder() {
+      return null;
+    }
+
+    @Override
+    public jakarta.ws.rs.core.Variant.VariantListBuilder createVariantListBuilder() {
+      return null;
+    }
+
+    @Override
+    public <T> T createEndpoint(jakarta.ws.rs.core.Application application, Class<T> endpointType) {
+      return null;
+    }
+
+    @Override
+    public <T> RuntimeDelegate.HeaderDelegate<T> createHeaderDelegate(Class<T> type) {
+      return null;
+    }
+
+    @Override
+    public jakarta.ws.rs.core.Link.Builder createLinkBuilder() {
+      return null;
+    }
+
+    @Override
+    public jakarta.ws.rs.core.EntityPart.Builder createEntityPartBuilder(String partName) {
+      return null;
+    }
+
+    @Override
+    public jakarta.ws.rs.SeBootstrap.Configuration.Builder createConfigurationBuilder() {
+      return null;
+    }
+
+    @Override
+    public java.util.concurrent.CompletionStage<jakarta.ws.rs.SeBootstrap.Instance> bootstrap(
+        jakarta.ws.rs.core.Application application, jakarta.ws.rs.SeBootstrap.Configuration configuration) {
+      return null;
+    }
+
+    @Override
+    public java.util.concurrent.CompletionStage<jakarta.ws.rs.SeBootstrap.Instance> bootstrap(
+        Class<? extends jakarta.ws.rs.core.Application> clazz, jakarta.ws.rs.SeBootstrap.Configuration configuration) {
+      return null;
+    }
   }
 }

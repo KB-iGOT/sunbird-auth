@@ -11,30 +11,30 @@ import org.jboss.logging.Logger;
 public class BruteForceUserAdminResourceProviderFactory implements AdminRealmResourceProviderFactory {
 
     private static final Logger logger = Logger.getLogger(BruteForceUserAdminResourceProviderFactory.class);
-    public static final String ID = "ui-ext";
+    public static final String ID = "sunbird-brute-force-admin";
 
     @Override
     public String getId() {
+        logger.info("[KC24_ADMIN_DEBUG] BruteForceUserAdminResourceProviderFactory.getId() called, returning: " + ID);
         return ID;
     }
 
     @Override
     public AdminRealmResourceProvider create(KeycloakSession session) {
-        logger.debug("FACTORY CREATE CALLED - Creating BruteForceUserResourceProvider");
+        logger.info("[KC24_ADMIN_DEBUG] FACTORY CREATE CALLED - Creating BruteForceUserResourceProvider");
         try {
             BruteForceUserAdminResourceProvider provider = new BruteForceUserAdminResourceProvider(session);
-            logger.debug("FACTORY CREATE SUCCESS - Provider created: " + provider);
+            logger.info("[KC24_ADMIN_DEBUG] FACTORY CREATE SUCCESS - Provider created successfully");
             return provider;
         } catch (Exception e) {
-            logger.error("FACTORY CREATE FAILED: " + e.getMessage(), e);
+            logger.error("[KC24_ADMIN_DEBUG] FACTORY CREATE FAILED: " + e.getMessage(), e);
             throw e;
         }
     }
 
     @Override
     public void init(Scope config) {
-        logger.debug("FACTORY INIT CALLED");
-        // Empty implementation
+        logger.info("[KC24_ADMIN_DEBUG] FACTORY INIT CALLED - ui-ext provider initializing");
     }
 
     @Override
@@ -48,5 +48,5 @@ public class BruteForceUserAdminResourceProviderFactory implements AdminRealmRes
         logger.debug("FACTORY CLOSE CALLED");
         // Empty implementation
     }
-    
+
 }
