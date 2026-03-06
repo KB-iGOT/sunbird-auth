@@ -16,6 +16,7 @@ import org.keycloak.models.GroupModel;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.ModelDuplicateException;
 import org.keycloak.models.RealmModel;
+import org.keycloak.models.UserCredentialModel;
 import org.keycloak.models.UserModel;
 import org.keycloak.models.credential.PasswordCredentialModel;
 import org.keycloak.storage.StorageId;
@@ -218,13 +219,13 @@ public class UserServiceProvider
             }
             logger.info("[KC24_CRED] Step 1 DONE - password resolved, length: " + passwordToValidate.length());
 
-            // Step 2: Validate the resolved plain-text password against the Sunbird backend.
-            // These are external federated users — Keycloak's local credential store contains
-            // zero PBKDF2 hashes for them, so local hash comparison is not possible.
-            String usernameForAuth = user.getUsername() != null ? user.getUsername() : user.getEmail();
-            logger.info("[KC24_CRED] Step 2 - Validating credentials against Sunbird backend for user: " + usernameForAuth);
-            boolean valid = UserSearchService.validateUserPassword(usernameForAuth, passwordToValidate);
-            logger.info("[KC24_CRED] Step 2 DONE - Sunbird backend validation result: " + valid);
+            // Step 2: Validate the resolved plain-text password against Keycloak's
+            // local credential store for this federated user via PasswordCredentialProvider (SPI).
+            logger.info("[KC24_CRED] Step 2 - Validating credentials via Keycloak PasswordCredentialProvider for user: " + user.getUsername());
+            PasswordCredentialProvider passwordProvider = (PasswordCredentialProvider) session
+                    .getProvider(CredentialProvider.class, PasswordCredentialProviderFactory.PROVIDER_ID);
+            boolean valid = passwordProvider.isValid(realm, user, UserCredentialModel.password(passwordToValidate));
+            logger.info("[KC24_CRED] Step 2 DONE - Keycloak PasswordCredentialProvider validation result: " + valid);
             logger.info("[KC24_CRED] ===== isValid() EXIT - result: " + valid + " =====");
             return valid;
 

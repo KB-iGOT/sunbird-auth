@@ -89,50 +89,6 @@ public class UserSearchService {
     return user;
   }
 
-  /**
-   * Validates a user's password against the Sunbird backend.
-   * Calls POST ${sunbird_user_service_base_url}/private/user/v1/login
-   * and returns true only when the response contains a non-null/non-empty
-   * "result.response.accessToken" (or similar success indicator).
-   *
-   * @return true  if the backend confirms the credentials are valid
-   *         false if the backend rejects them or the call fails
-   */
-  @SuppressWarnings("unchecked")
-  public static boolean validateUserPassword(String username, String password) {
-    try {
-      String baseUrl = System.getenv("sunbird_user_service_base_url");
-      if (baseUrl == null || baseUrl.isEmpty()) {
-        logger.warn("UserSearchService:validateUserPassword sunbird_user_service_base_url is not set");
-        return false;
-      }
-      String loginUrl = baseUrl + "/private/user/v1/login";
-      Map<String, Object> request = new HashMap<>();
-      request.put("userName", username);
-      request.put("password", password);
-      Map<String, Object> body = new HashMap<>();
-      body.put("request", request);
-      logger.info("UserSearchService:validateUserPassword calling: " + loginUrl + " for user: " + username);
-      Map<String, Object> response = post(body, loginUrl, System.getenv(Constants.SUNBIRD_LMS_AUTHORIZATION));
-      if (response == null) {
-        logger.warn("UserSearchService:validateUserPassword null response from backend for user: " + username);
-        return false;
-      }
-      // Sunbird LMS success response: {"responseCode":"OK","result":{"response":{"accessToken":"..."}}}
-      String responseCode = (String) response.get("responseCode");
-      if ("OK".equalsIgnoreCase(responseCode)) {
-        logger.info("UserSearchService:validateUserPassword backend confirmed valid credentials for: " + username);
-        return true;
-      }
-      logger.warn("UserSearchService:validateUserPassword backend rejected credentials for: "
-          + username + ", responseCode=" + responseCode);
-      return false;
-    } catch (Exception e) {
-      logger.error("UserSearchService:validateUserPassword exception for user: " + username + ": " + e.getMessage(), e);
-      return false;
-    }
-  }
-
   public static Map<String, Object> post(Map<String, Object> requestBody, String uri,
       String authorizationKey) {
     try {
