@@ -129,10 +129,13 @@ public class NetCoreSMSProvider {
                     try (CloseableHttpResponse response = httpClient.execute(post)) {
                         int responseCode = response.getStatusLine().getStatusCode();
                         String responseStr = EntityUtils.toString(response.getEntity());
-                        logger.info(String.format("SMS Sent. ResponseCode: %s, Response Body: %s, TimeTaken: %s",
-                                responseCode, responseStr, (System.currentTimeMillis() - startTime)));
+
                         if (responseCode == 200) {
                             retVal = true;
+                        } else {
+                            logger.error(String.format(
+                                    "Failed to send SMS to mobile: %s, ResponseCode: %s, Response Body: %s",
+                                    mobileNumber, responseCode, responseStr));
                         }
                     } catch (Exception e) {
                         logger.error(String.format("Failed to send SMS to mobile: %s, TimeTaken: %s, Exception: %s",
