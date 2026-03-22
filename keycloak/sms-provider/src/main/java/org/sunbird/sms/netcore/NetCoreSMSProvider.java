@@ -99,6 +99,7 @@ public class NetCoreSMSProvider {
                 mobileNumber, otpKey, otpExpiry));
 
         // Send an SMS
+        long startTime = System.currentTimeMillis();
         try {
             if (StringUtils.isNotBlank(urlStr) && StringUtils.isNotBlank(message)
                     && StringUtils.isNotBlank(mobileNumber) && StringUtils.isNotBlank(templateId)
@@ -108,9 +109,6 @@ public class NetCoreSMSProvider {
                 mobileNumber = removePlusFromMobileNumber(mobileNumber);
                 message = updateParamValues(message, otpKey, otpExpiry);
                 logger.debug("NetCoreSMSProvider - after removePlusFromMobileNumber " + mobileNumber);
-
-               
-                long startTime = System.currentTimeMillis();
 
                 try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
                     HttpPost post = new HttpPost(urlStr);
@@ -150,6 +148,8 @@ public class NetCoreSMSProvider {
         } catch (Exception e) {
             logger.error("NetCoreSMSProvider::send Failed to send SMS.", e);
         }
+        logger.info("Email for OTP send successfully ? " + retVal + ", Time taken: "
+                + (System.currentTimeMillis() - startTime));
         return retVal;
     }
 
