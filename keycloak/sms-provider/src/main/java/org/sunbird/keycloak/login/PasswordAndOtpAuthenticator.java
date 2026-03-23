@@ -48,7 +48,7 @@ import org.keycloak.services.messages.Messages;
 import org.sunbird.keycloak.resetcredential.sms.KeycloakSmsAuthenticatorConstants;
 import org.sunbird.keycloak.resetcredential.sms.KeycloakSmsAuthenticatorUtil;
 import org.sunbird.keycloak.utils.Constants;
-import org.sunbird.keycloak.utils.HttpClient;
+import org.sunbird.keycloak.utils.HttpClientUtil;
 import org.sunbird.keycloak.utils.SunbirdModelUtils;
 import org.sunbird.sms.SmsConfigurationConstants;
 import org.sunbird.sms.amnex.AmnexSmsProvider;
@@ -73,26 +73,21 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 	@Override
 	public void authenticate(AuthenticationFlowContext context) {
 		String secretKey = context.getAuthenticationSession().getAuthNote(Constants.SECRET_KEY);
-        if (StringUtils.isBlank(secretKey)) {
+		if (StringUtils.isBlank(secretKey)) {
 			// Generate the secret key
 			secretKey = generateSecretKey();
-			logger.info("Generated new secret key.");
 		}
-		String flagPage = getValue(context, Constants.FLAG_PAGE);
-		logger.debug("OtpSmsFormAuthenticator::authenticate:: " + flagPage + ", keyValue: " + secretKey);
-		
+
 		// Store the secret key as an authentication session note
 		context.getAuthenticationSession().setAuthNote(Constants.SECRET_KEY, secretKey);
 
 		LoginFormsProvider formsProvider = context.form();
 		formsProvider.setAttribute(Constants.SECRET_KEY, secretKey);
-		if(context.getAuthenticationSession().getRedirectUri().contains(Constants.EC_LOGIN)){
-			logger.info("loading ec login page");
+		if (context.getAuthenticationSession().getRedirectUri().contains(Constants.EC_LOGIN)) {
 			context.getAuthenticationSession().setAuthNote(Constants.AUTH_NOTE_LOGIN_PAGE, Constants.EC_LOGIN_PAGE);
 			context.challenge(formsProvider.createForm(Constants.EC_LOGIN_PAGE));
-		}else{
-			logger.info("loading login page");
-		    context.challenge(formsProvider.createForm(Constants.LOGIN_PAGE));
+		} else {
+			context.challenge(formsProvider.createForm(Constants.LOGIN_PAGE));
 		}
 	}
 
@@ -124,7 +119,6 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		}
 
 		String flagPage = getValue(context, Constants.FLAG_PAGE);
-		logger.info("OtpSmsFormAuthenticator::action:: " + flagPage);
 		switch (flagPage) {
 			case Constants.FLAG_OTP_PAGE:
 				authenticateOtp(context);
@@ -136,15 +130,17 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 				sendOtp(context, qParamMap.getFirst(Constants.REDIRECT_URI_KEY));
 				break;
 			case Constants.FLAG_LOGIN_WITH_PASS:
-				if (!validateForm(context, context.getHttpRequest().getDecodedFormParameters())) {
+				boolean isSuccess = validateForm(context, context.getHttpRequest().getDecodedFormParameters());
+				if (!isSuccess) {
 					goErrorPage(context, "Invalid credentials!");
 				} else {
-					logger.info("Validation of username + password is successful... setting redirect_uri with "
-							+ qParamMap.getFirst(Constants.REDIRECT_URI_KEY));
 					context.getAuthenticationSession().setAuthNote(Details.REDIRECT_URI,
 							qParamMap.getFirst(Constants.REDIRECT_URI_KEY));
 					context.success();
 				}
+				logger.info(String.format(
+						"Action:: validateForm - Validation of username + password is completed for userId: %s, isSuccess: %s",
+						context.getUser().getId(), isSuccess));
 				break;
 			default:
 				authenticate(context);
@@ -164,7 +160,6 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 	private void authenticateOtp(AuthenticationFlowContext context) {
 		CODE_STATUS status = validateCode(context);
 		if (status == CODE_STATUS.VALID) {
-			logger.info("Validation of Username + OTP is successful... ");
 			context.getAuthenticationSession().removeAuthNote(Constants.SESSION_OTP_CODE);
 			context.success();
 		} else if (status == CODE_STATUS.EXPIRED) {
@@ -177,6 +172,9 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		} else {
 			goErrorPage(context, Constants.PAGE_INPUT_OTP, Constants.INVALID_OTP_ENTERED);
 		}
+		logger.info(String.format(
+				"Action:: authenticateOtp - completed for userId: %s, status: %s",
+				context.getUser().getId(), status.name()));
 	}
 
 	private void goErrorPage(AuthenticationFlowContext context, String message) {
@@ -187,9 +185,11 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		// Set the default error page
 		String errorPage = Constants.LOGIN_PAGE;
 
-		// Check if authNote is blank or equals EC_LOGIN, then set error page to EC_LOGIN_PAGE
+		// Check if authNote is blank or equals EC_LOGIN, then set error page to
+		// EC_LOGIN_PAGE
 		if (StringUtils.isNotBlank(context.getAuthenticationSession().getAuthNote(Constants.AUTH_NOTE_LOGIN_PAGE)) &&
-		        (Constants.EC_LOGIN_PAGE.equals(context.getAuthenticationSession().getAuthNote(Constants.AUTH_NOTE_LOGIN_PAGE)))) {
+				(Constants.EC_LOGIN_PAGE
+						.equals(context.getAuthenticationSession().getAuthNote(Constants.AUTH_NOTE_LOGIN_PAGE)))) {
 			errorPage = Constants.EC_LOGIN_PAGE;
 		}
 
@@ -306,7 +306,8 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 			return null;
 		}
 
-		// Check if user is null - invalidUser() can render forms, so secretKey must be set
+		// Check if user is null - invalidUser() can render forms, so secretKey must be
+		// set
 		if (user == null) {
 			logger.warn("User not found for mobile/email: " + mobilePhone);
 			return null;
@@ -324,6 +325,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		if (null == user) {
 			context.getEvent().getEvent().setError(Errors.USER_NOT_FOUND);
 			goErrorPage(context, "Oops, Member not found.");
+			logger.error("Action:: sendOtp - User not found for mobile/email: " + emailOrMobile);
 			return;
 		}
 
@@ -335,7 +337,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 						context.getUser().getId(), user.getId()));
 				context.getEvent().getEvent().setError(Errors.DIFFERENT_USER_AUTHENTICATED);
 				goErrorPage(context, "Authentication Error! Please enter your credentials again.");
-				return;		
+				return;
 			}
 		}
 
@@ -343,20 +345,25 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		Map<String, String> attributes = generateOTP(context);
 
 		// Send the key into the User Mobile Phone
-		if (sendOtpByEmailOrSms(context, emailOrMobile, attributes.get(Constants.SESSION_OTP_CODE))) {
-			//SMS is sent successfully, let's save the details in session and return the necessary page.
-			context.getAuthenticationSession().setAuthNote(Constants.SESSION_OTP_CODE, attributes.get(Constants.SESSION_OTP_CODE));
-			context.getAuthenticationSession().setAuthNote(Constants.SESSION_OTP_EXPIRE_TIME, attributes.get(KeycloakSmsAuthenticatorConstants.CONF_PRP_SMS_CODE_TTL));
+		boolean isSuccess = sendOtpByEmailOrSms(context, emailOrMobile, attributes.get(Constants.SESSION_OTP_CODE));
+		if (isSuccess) {
+			// SMS is sent successfully, let's save the details in session and return the
+			// necessary page.
+			context.getAuthenticationSession().setAuthNote(Constants.SESSION_OTP_CODE,
+					attributes.get(Constants.SESSION_OTP_CODE));
+			context.getAuthenticationSession().setAuthNote(Constants.SESSION_OTP_EXPIRE_TIME,
+					attributes.get(KeycloakSmsAuthenticatorConstants.CONF_PRP_SMS_CODE_TTL));
 			context.getAuthenticationSession().setAuthNote(Constants.ATTEMPTED_EMAIL_OR_MOBILE_NUMBER, emailOrMobile);
 			context.getAuthenticationSession().setAuthNote(Details.REDIRECT_URI, redirectUri);
-
-			logger.info("Saving user details in session with userId: " + user.getId());
 			context.setUser(user);
 			goPage(context, Constants.PAGE_INPUT_OTP, StringUtils.EMPTY, attributes);
 		} else {
 			context.getEvent().getEvent().setError("SMS_SEND_FAILED");
 			goErrorPage(context, "Failed to send out SMS. Please contact Administrator.");
 		}
+		logger.info(String.format(
+				"Action:: sendOtp - completed for userId: %s, status: %s",
+				context.getUser().getId(), isSuccess));
 	}
 
 	private void resendOtp(AuthenticationFlowContext context) {
@@ -369,12 +376,16 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		context.getAuthenticationSession().setAuthNote(Constants.SESSION_OTP_CODE,
 				attributes.get(Constants.SESSION_OTP_CODE));
 		// Send the key into the User Mobile Phone
-		if (sendOtpByEmailOrSms(context, mobileNumber, attributes.get(Constants.SESSION_OTP_CODE))) {
+		boolean isSuccess = sendOtpByEmailOrSms(context, mobileNumber, attributes.get(Constants.SESSION_OTP_CODE));
+		if (isSuccess) {
 			goPage(context, Constants.PAGE_INPUT_OTP);
 		} else {
 			context.getEvent().getEvent().setError("SMS_SEND_FAILED");
 			goErrorPage(context, "Failed to send out SMS. Please contact Administrator.");
 		}
+		logger.info(String.format(
+				"Action:: resendOtp - completed for userId: %s, status: %s",
+				context.getUser().getId(), isSuccess));
 	}
 
 	private boolean sendOtpByEmailOrSms(AuthenticationFlowContext context, String mobileNumber, String otp) {
@@ -387,7 +398,6 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 				if (configModel.getConfig() != null) {
 					smsProvider = configModel.getConfig().get(KeycloakSmsAuthenticatorConstants.CONF_PRP_SMS_PROVIDER);
 				}
-				logger.info("SMS for OTP initiated with provider : " + smsProvider);
 				if (Constants.MSG91_PROVIDER.equalsIgnoreCase(smsProvider)) {
 					retValue = KeycloakSmsAuthenticatorUtil.send(mobileNumber, otp);
 				} else if (Constants.Free2SMS_PROVIDER.equalsIgnoreCase(smsProvider)) {
@@ -417,7 +427,6 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 				logger.error("Failed to identify given key is email or mobile.");
 				break;
 		}
-		logger.info("Email/SMS for OTP send successfully ? " + retValue);
 		return retValue;
 	}
 
@@ -505,21 +514,28 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 
 		HttpResponse response = null;
 		try {
-			response = HttpClient.post(request,
+			long startTime = System.currentTimeMillis();
+			response = HttpClientUtil.post(request,
 					(System.getenv(Constants.SUNBIRD_LMS_BASE_URL) + Constants.SEND_NOTIFICATION_URI),
 					System.getenv(Constants.SUNBIRD_LMS_AUTHORIZATION));
 			if (response.getStatusLine() != null) {
 				int statusCode = response.getStatusLine().getStatusCode();
 				if (statusCode == 200) {
+					logger.info(String.format(
+							"Action:: sendEmailViaSunbird - successfully sent OTP Email; UserEmail: %s; TimeTaken: %s",
+							userEmail, (System.currentTimeMillis() - startTime)));
 					return true;
 				} else {
 					logger.error(
-							String.format("Failed to send email for OTP Login. Received StatusCode: %s", statusCode));
+							String.format(
+									"Action:: sendEmailViaSunbird - Failed to send OTP Email. UserEmail: %s; Received StatusCode: %s",
+									userEmail, statusCode));
 				}
 			}
 		} catch (Exception e) {
-			logger.error("Failed to send Email Notification for OTP Login. Exception: ", e);
+			logger.error("Action:: sendEmailViaSunbird - Failed to send OTP Email. Exception: ", e);
 		}
+
 		return false;
 	}
 
@@ -668,12 +684,14 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 			// Could happen during federation import
 			if (mde.getDuplicateFieldName() != null && mde.getDuplicateFieldName().equals(UserModel.EMAIL)) {
 				context.getEvent().getEvent().setError(Errors.EMAIL_IN_USE);
-				//setDuplicateUserChallenge(context, Errors.EMAIL_IN_USE, Messages.EMAIL_EXISTS,
-				//		AuthenticationFlowError.INVALID_USER);
+				// setDuplicateUserChallenge(context, Errors.EMAIL_IN_USE,
+				// Messages.EMAIL_EXISTS,
+				// AuthenticationFlowError.INVALID_USER);
 			} else {
 				context.getEvent().getEvent().setError(Errors.USERNAME_IN_USE);
-				//setDuplicateUserChallenge(context, Errors.USERNAME_IN_USE, Messages.USERNAME_EXISTS,
-				//		AuthenticationFlowError.INVALID_USER);
+				// setDuplicateUserChallenge(context, Errors.USERNAME_IN_USE,
+				// Messages.USERNAME_EXISTS,
+				// AuthenticationFlowError.INVALID_USER);
 			}
 
 			return false;
@@ -690,12 +708,12 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		}
 
 		if (context.getRealm().isBruteForceProtected()) {
-            if (context.getProtector().isTemporarilyDisabled(context.getSession(), context.getRealm(), user)) {
+			if (context.getProtector().isTemporarilyDisabled(context.getSession(), context.getRealm(), user)) {
 				context.getEvent().getEvent().setError(Errors.USER_TEMPORARILY_DISABLED);
 				return false;
 			}
 		}
-		
+
 		if (!validatePassword(context, user, inputData)) {
 			context.getEvent().getEvent().setError(Errors.INVALID_USER_CREDENTIALS);
 			return false;
@@ -715,21 +733,14 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 
 	public boolean validatePassword(AuthenticationFlowContext context, UserModel user,
 			MultivaluedMap<String, String> inputData) {
-		String encryptedPassword = inputData.getFirst(CredentialRepresentation.PASSWORD);
-		String secretKey = context.getAuthenticationSession().getAuthNote(Constants.SECRET_KEY);
-		String iv = inputData.getFirst(Constants.IV);
-		// Decrypt the password
-		String decryptedPassword = decryptPassword(encryptedPassword, secretKey, iv);
-
-		List<CredentialInput> credentials = new LinkedList<>();
-		credentials.add(UserCredentialModel.password(decryptedPassword));
-
-		if (decryptedPassword != null && !decryptedPassword.isEmpty()
-				&& context.getSession().userCredentialManager().isValid(context.getRealm(), user, credentials)) {
-			return true;
-		} else {
+		String password = inputData.getFirst(CredentialRepresentation.PASSWORD);
+		if (StringUtils.isEmpty(password)) {
 			return false;
 		}
+		List<CredentialInput> credentials = new LinkedList<>();
+		credentials.add(UserCredentialModel.password(password));
+
+		return context.getSession().userCredentialManager().isValid(context.getRealm(), user, credentials);
 	}
 
 	private String decryptPassword(String encryptedPassword, String secretKey, String iv) {
@@ -751,8 +762,10 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 	}
 
 	/**
-	 * Ensures secretKey exists in the authentication session. Generates a new one if missing.
-	 * This prevents NullPointerException in FreeMarker templates when forms are rendered.
+	 * Ensures secretKey exists in the authentication session. Generates a new one
+	 * if missing.
+	 * This prevents NullPointerException in FreeMarker templates when forms are
+	 * rendered.
 	 *
 	 * @param context The authentication flow context
 	 */
@@ -764,8 +777,10 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 	}
 
 	/**
-	 * Ensures secretKey is available in the authentication session and returns a LoginFormsProvider
-	 * with the secretKey attribute set. This prevents NullPointerException in FreeMarker templates.
+	 * Ensures secretKey is available in the authentication session and returns a
+	 * LoginFormsProvider
+	 * with the secretKey attribute set. This prevents NullPointerException in
+	 * FreeMarker templates.
 	 *
 	 * @param context The authentication flow context
 	 * @return LoginFormsProvider with secretKey attribute set
@@ -773,9 +788,8 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 	private LoginFormsProvider getLoginFormsProviderWithSecretKey(AuthenticationFlowContext context) {
 		ensureSecretKey(context);
 		LoginFormsProvider formsProvider = context.form();
-		formsProvider.setAttribute(Constants.SECRET_KEY, 
-			context.getAuthenticationSession().getAuthNote(Constants.SECRET_KEY)
-		);
+		formsProvider.setAttribute(Constants.SECRET_KEY,
+				context.getAuthenticationSession().getAuthNote(Constants.SECRET_KEY));
 		return formsProvider;
 	}
 }

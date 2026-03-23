@@ -1,18 +1,23 @@
 package org.sunbird.sms.netcore;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.EntityUtils;
 import org.jboss.logging.Logger;
@@ -32,6 +37,7 @@ public class NetCoreSMSProvider {
     private Map<String, Object> configurations;
     private Map<String, Map<String, String>> messageTypeMap = new HashMap<String, Map<String, String>>();
     private boolean isConfigured;
+    private CloseableHttpClient httpClient;
 
     public static NetCoreSMSProvider getInstance() {
         if (netCoreSmsProvider == null) {
@@ -46,6 +52,30 @@ public class NetCoreSMSProvider {
     }
 
     public void configure() {
+        Properties props = new Properties();
+        String httpPropPath = new File(org.sunbird.keycloak.utils.Constants.HTTP_CLIENT_CONFIGURATIONS_PATH)
+                .getAbsolutePath();
+        try (InputStream input = new java.io.FileInputStream(httpPropPath)) {
+            props.load(input);
+        } catch (IOException ex) {
+            logger.error("Error reading httpclient.properties", ex);
+        }
+
+        int maxTotal = Integer.parseInt(props.getProperty("http.maxTotal", "200"));
+        int maxPerRoute = Integer.parseInt(props.getProperty("http.maxPerRoute", "50"));
+        int connectTimeout = Integer.parseInt(props.getProperty("http.connectTimeout", "5000"));
+        int socketTimeout = Integer.parseInt(props.getProperty("http.socketTimeout", "5000"));
+        int connectionRequestTimeout = Integer.parseInt(props.getProperty("http.connectionRequestTimeout", "5000"));
+
+        PoolingHttpClientConnectionManager cm = new PoolingHttpClientConnectionManager();
+        cm.setMaxTotal(maxTotal);
+        cm.setDefaultMaxPerRoute(maxPerRoute);
+        RequestConfig requestConfig = RequestConfig.custom()
+                .setConnectTimeout(connectTimeout).setSocketTimeout(socketTimeout)
+                .setConnectionRequestTimeout(connectionRequestTimeout).build();
+        this.httpClient = HttpClients.custom().setConnectionManager(cm)
+                .setDefaultRequestConfig(requestConfig).evictExpiredConnections().build();
+
         String filePath = new File(KeycloakSmsAuthenticatorConstants.NETCORE_SMS_PROVIDER_CONFIGURATIONS_PATH)
                 .getAbsolutePath();
         logger.info("NetCoreSMSProvider@configure : filePath - " + filePath);
@@ -73,13 +103,15 @@ public class NetCoreSMSProvider {
     public boolean send(String mobileNumber, String otpKey, String otpExpiry, String smsType) {
         boolean retVal = false;
         if (!isConfigured) {
-            logger.error("SMS is not configured properly. Failed to send SMS");
+            logger.error("Action:: sendSmsViaNetCore - Failed to send OTP SMS, configuration is not proper.");
             return retVal;
         }
 
         Map<String, String> messageTypeConfig = messageTypeMap.get(smsType);
         if (messageTypeConfig == null) {
-            logger.error(String.format("Failed to find SMS Message Type configuration for name - %s", smsType));
+            logger.error(String.format(
+                    "Action:: sendSmsViaNetCore - Failed to send OTP SMS, Message Type configuration not found for name - %s",
+                    smsType));
         }
 
         String urlStr = (String) configurations.get(SmsConfigurationConstants.CONF_SMS_GATEWAY_URL);
@@ -95,8 +127,10 @@ public class NetCoreSMSProvider {
         String templateId = SMSConfigurationUtil.getConfigString(messageTypeConfig,
                 SmsConfigurationConstants.AMNEX_SMS_TEMPLATE_ID);
 
-        logger.debug(String.format("NetCoreSMSProvider@Sending sms to mobileNumber %s, otpKey: %s, otpExpiry: %s",
-                mobileNumber, otpKey, otpExpiry));
+        logger.debug(
+                String.format(
+                        "Action:: sendSmsViaNetCore - Sending OTP SMS to mobileNumber %s, otpKey: %s, otpExpiry: %s",
+                        mobileNumber, otpKey, otpExpiry));
 
         // Send an SMS
         try {
@@ -107,48 +141,48 @@ public class NetCoreSMSProvider {
                     && StringUtils.isNotBlank(asyncVal)) {
                 mobileNumber = removePlusFromMobileNumber(mobileNumber);
                 message = updateParamValues(message, otpKey, otpExpiry);
-                logger.debug("NetCoreSMSProvider - after removePlusFromMobileNumber " + mobileNumber);
+                logger.debug("Action:: sendSmsViaNetCore - after removePlusFromMobileNumber " + mobileNumber);
 
-               
+                HttpPost post = new HttpPost(urlStr);
+                post.setHeader("Content-Type", "application/x-www-form-urlencoded");
+
+                List<NameValuePair> params = new ArrayList<>();
+                params.add(new BasicNameValuePair(SmsConfigurationConstants.NETCORE_SMS_FEEDID, feedId));
+                params.add(new BasicNameValuePair(SmsConfigurationConstants.CONF_USER_NAME, username));
+                params.add(new BasicNameValuePair(SmsConfigurationConstants.CONF_PASSWROD, password));
+                params.add(new BasicNameValuePair(Constants.TO, mobileNumber));
+                params.add(new BasicNameValuePair(Constants.TEXT, message));
+                params.add(new BasicNameValuePair(Constants.TEMPLATE_ID, templateId));
+                params.add(new BasicNameValuePair(Constants.SHORT, "0"));
+                params.add(new BasicNameValuePair(Constants.ASYNC, "0"));
+
+                post.setEntity(new UrlEncodedFormEntity(params));
+
                 long startTime = System.currentTimeMillis();
-
-                try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-                    HttpPost post = new HttpPost(urlStr);
-                    post.setHeader("Content-Type", "application/x-www-form-urlencoded");
-
-                    List<NameValuePair> params = new ArrayList<>();
-                    params.add(new BasicNameValuePair(SmsConfigurationConstants.NETCORE_SMS_FEEDID, feedId));
-                    params.add(new BasicNameValuePair(SmsConfigurationConstants.CONF_USER_NAME, username));
-                    params.add(new BasicNameValuePair(SmsConfigurationConstants.CONF_PASSWROD, password));
-                    params.add(new BasicNameValuePair(Constants.TO, mobileNumber));
-                    params.add(new BasicNameValuePair(Constants.TEXT, message));
-                    params.add(new BasicNameValuePair(Constants.TEMPLATE_ID, templateId));
-                    params.add(new BasicNameValuePair(Constants.SHORT, "0"));
-                    params.add(new BasicNameValuePair(Constants.ASYNC, "0"));
-
-                    post.setEntity(new UrlEncodedFormEntity(params));
-
-                    try (CloseableHttpResponse response = httpClient.execute(post)) {
-                        int responseCode = response.getStatusLine().getStatusCode();
-                        String responseStr = EntityUtils.toString(response.getEntity());
-                        logger.info(String.format("SMS Sent. ResponseCode: %s, Response Body: %s, TimeTaken: %s",
-                                responseCode, responseStr, (System.currentTimeMillis() - startTime)));
-                        if (responseCode == 200) {
-                            retVal = true;
-                        }
-                    } catch (Exception e) {
-                        logger.error(String.format("Failed to send SMS to mobile: %s, TimeTaken: %s, Exception: %s",
-                                mobileNumber, (System.currentTimeMillis() - startTime), e.getMessage()), e);
+                try (CloseableHttpResponse response = this.httpClient.execute(post)) {
+                    int responseCode = response.getStatusLine().getStatusCode();
+                    String responseStr = EntityUtils.toString(response.getEntity());
+                    if (responseCode == 200) {
+                        logger.info(String.format(
+                                "Action:: sendSmsViaNetCore - successfully sent OTP SMS, Mobile: %s, TimeTaken: %s",
+                                mobileNumber, (System.currentTimeMillis() - startTime)));
+                        retVal = true;
+                    } else {
+                        logger.error(String.format(
+                                "Action:: sendSmsViaNetCore - Failed to send OTP SMS, Mobile: %s, ResponseCode: %s, Response Body: %s",
+                                mobileNumber, responseCode, responseStr));
                     }
                 } catch (Exception e) {
-                    logger.error(String.format("Failed to create httpClient. TimeTaken: %s, Exception: %s",
-                            (System.currentTimeMillis() - startTime), e.getMessage()), e);
+                    logger.error(String.format(
+                            "Action:: sendSmsViaNetCore - Failed to send OTP SMS, Exception while sending SMS to mobile: %s, TimeTaken: %s, Exception: %s",
+                            mobileNumber, (System.currentTimeMillis() - startTime), e.getMessage()), e);
                 }
             } else {
-                logger.error("NetCoreSMSProvider - Some mandatory parameters are empty!");
+                logger.error(
+                        "Action:: sendSmsViaNetCore - Failed to send OTP SMS, Some mandatory parameters are empty!");
             }
         } catch (Exception e) {
-            logger.error("NetCoreSMSProvider::send Failed to send SMS.", e);
+            logger.error("Action:: sendSmsViaNetCore - Failed to send OTP SMS, Exception: ", e);
         }
         return retVal;
     }
