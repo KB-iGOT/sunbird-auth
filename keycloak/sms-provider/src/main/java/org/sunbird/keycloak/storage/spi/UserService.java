@@ -3,18 +3,14 @@ package org.sunbird.keycloak.storage.spi;
 import java.util.Collections;
 import java.util.List;
 
-import org.jboss.logging.Logger;
 import org.sunbird.keycloak.utils.Constants;
 
 public class UserService {
-
-  private static Logger logger = Logger.getLogger(UserService.class);
 
   public UserService() {
   }
 
   public User getById(String id) {
-    logger.info("UserService:getById get by id method called = " + id);
     List<User> users = getByKey(Constants.ID, id);
     if (null != users && !users.isEmpty()) {
       return users.get(0);
