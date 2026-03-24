@@ -131,7 +131,10 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
     @Override
     public void action(AuthenticationFlowContext context) {
         logger.info("[KC24_AUTH] ===== action() ENTRY =====");
-
+        logger.info("[KC24_AUTH] ===== action() ENTRY And CONTEXT is  =====" + context);
+        logger.info("[KC24_AUTH] ===== action()  CONTEXT and HTTPREQUEST  =====" + context.getHttpRequest());
+        logger.info("[KC24_AUTH] ===== action()  CONTEXT and HTTPREQUEST and QUERY PARAMETERS  ====="
+                + context.getHttpRequest().getUri().getQueryParameters());
         // Log all query parameters - use getQueryParameters() for Keycloak 24 compatibility
         MultivaluedMap<String, String> qParamMap = context.getHttpRequest().getUri().getQueryParameters();
         Iterator<Entry<String, List<String>>> itr = qParamMap.entrySet().iterator();
