@@ -70,7 +70,7 @@ public class NetCoreSMSProvider {
         }
     }
 
-    public boolean send(String mobileNumber, String otpKey, String otpExpiry, String smsType) {
+    public boolean send(String userId, String mobileNumber, String otpKey, String otpExpiry, String smsType) {
         boolean retVal = false;
         if (!isConfigured) {
             logger.error("Action:: sendSmsViaNetCore - Failed to send OTP SMS, configuration is not proper.");
@@ -99,10 +99,11 @@ public class NetCoreSMSProvider {
 
         logger.debug(
                 String.format(
-                        "Action:: sendSmsViaNetCore - Sending OTP SMS to mobileNumber %s, otpKey: %s, otpExpiry: %s",
-                        mobileNumber, otpKey, otpExpiry));
+                        "Action:: sendSmsViaNetCore - Sending OTP SMS to UserId: %s, MobileNumber: %s, otpKey: %s, otpExpiry: %s",
+                        userId, mobileNumber, otpKey, otpExpiry));
 
         // Send an SMS
+        long mStartTime = System.currentTimeMillis();
         try {
             if (StringUtils.isNotBlank(urlStr) && StringUtils.isNotBlank(message)
                     && StringUtils.isNotBlank(mobileNumber) && StringUtils.isNotBlank(templateId)
@@ -111,7 +112,7 @@ public class NetCoreSMSProvider {
                     && StringUtils.isNotBlank(asyncVal)) {
                 mobileNumber = removePlusFromMobileNumber(mobileNumber);
                 message = updateParamValues(message, otpKey, otpExpiry);
-                logger.debug("Action:: sendSmsViaNetCore - after removePlusFromMobileNumber " + mobileNumber);                
+                logger.debug(String.format("Action:: sendSmsViaNetCore - after removePlusFromMobileNumber; UserId: %s, Mobile: %s ", userId, mobileNumber));                
 
                 long startTime = System.currentTimeMillis();
                 try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
@@ -135,29 +136,31 @@ public class NetCoreSMSProvider {
                         String responseStr = EntityUtils.toString(response.getEntity());
                         if (responseCode == 200) {
                             logger.info(String.format(
-                                "Action:: sendSmsViaNetCore - successfully sent OTP SMS, Mobile: %s, TimeTaken: %s",
-                                mobileNumber, (System.currentTimeMillis() - startTime)));
+                                "Action:: sendSmsViaNetCore - successfully sent OTP SMS, UserId: %s, MobileNumber: %s, TimeTaken: %s, ResponseCode: %s",
+                                userId, mobileNumber, (System.currentTimeMillis() - startTime), responseCode));
                             retVal = true;
                         } else {
                             logger.error(String.format(
-                                "Action:: sendSmsViaNetCore - Failed to send OTP SMS, Mobile: %s, ResponseCode: %s, Response Body: %s",
-                                mobileNumber, responseCode, responseStr));
+                                "Action:: sendSmsViaNetCore - Failed to send OTP SMS, UserId: %s, MobileNumber: %s, TimeTaken: %s, ResponseCode: %s, Response Body: %s",
+                                userId, mobileNumber, (System.currentTimeMillis() - startTime), responseCode, responseStr));
                         }
                     } catch (Exception e) {
                         logger.error(String.format(
-                            "Action:: sendSmsViaNetCore - Failed to send OTP SMS, Exception while sending SMS to mobile: %s, TimeTaken: %s, Exception: %s",
-                            mobileNumber, (System.currentTimeMillis() - startTime), e.getMessage()), e);
+                            "Action:: sendSmsViaNetCore - Failed to send OTP SMS, Exception while sending SMS to UserId: %s, MobileNumber: %s, TimeTaken: %s, Exception: %s",
+                            userId, mobileNumber, (System.currentTimeMillis() - startTime), e.getMessage()), e);
                     }
                 } catch (Exception e) {
                     logger.error(String.format(
-                            "Action:: sendSmsViaNetCore - Failed to send OTP SMS, Exception while sending SMS to mobile: %s, Exception: %s",
-                            mobileNumber, (System.currentTimeMillis() - startTime), e.getMessage()), e);
+                            "Action:: sendSmsViaNetCore - Failed to send OTP SMS, Exception while sending SMS to UserId: %s, MobileNumber: %s, TimeTaken: %s, Exception: %s",
+                            userId, mobileNumber, (System.currentTimeMillis() - startTime), e.getMessage()), e);
                 }
             } else {
-                logger.error("Action:: sendSmsViaNetCore - Failed to send OTP SMS, Some mandatory parameters are empty!");
+                logger.error(String.format("Action:: sendSmsViaNetCore - Failed to send OTP SMS, Some mandatory parameters are empty. UserId: %s, MobileNumber: %s ", 
+                    userId, mobileNumber));
             }
         } catch (Exception e) {
-            logger.error("Action:: sendSmsViaNetCore - Failed to send OTP SMS, Exception: ", e);
+            logger.error(String.format("Action:: sendSmsViaNetCore - Failed to send OTP SMS. UserId: %s, MobileNumber: %s, TimeTaken: %s, Exception: %s", 
+                userId, mobileNumber, (System.currentTimeMillis() - mStartTime), e.getMessage()), e);
         }
         return retVal;
     }

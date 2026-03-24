@@ -411,7 +411,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 				} else if (Constants.NETCORE_SMS_PROVIDER.equalsIgnoreCase(smsProvider)) {
 					long ttl = KeycloakSmsAuthenticatorUtil.getConfigLong(context.getAuthenticatorConfig(),
 							KeycloakSmsAuthenticatorConstants.CONF_PRP_SMS_CODE_TTL, 5 * 60L);
-					retValue = sendSmsViaNetCore(mobileNumber, otp, String.valueOf(ttl / 60));
+					retValue = sendSmsViaNetCore(context.getUser().getId(), mobileNumber, otp, String.valueOf(ttl / 60));
 				} else {
 					logger.error(String.format(
 							"SMS Provider is not configured property. current value: %s. Execpected value: NIC / MSG91",
@@ -468,7 +468,6 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 			logger.info(stringBuffer.toString());
 			return true;
 		} catch (Exception e) {
-			System.out.println("Error SMS " + e);
 			logger.error(e);
 		}
 		return false;
@@ -511,8 +510,8 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		request.put(Constants.REQUEST, otpResponse);
 
 		HttpResponse response = null;
+		long startTime = System.currentTimeMillis();
 		try {
-			long startTime = System.currentTimeMillis();
 			response = HttpClient.post(request,
 					(System.getenv(Constants.SUNBIRD_LMS_BASE_URL) + Constants.SEND_NOTIFICATION_URI),
 					System.getenv(Constants.SUNBIRD_LMS_AUTHORIZATION));
@@ -520,16 +519,19 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 				int statusCode = response.getStatusLine().getStatusCode();
 				if (statusCode == 200) {
 					logger.info(String.format(
-							"Action:: sendEmailViaSunbird - successfully sent OTP Email; UserEmail: %s; TimeTaken: %s",
-							userEmail, (System.currentTimeMillis() - startTime)));
+							"Action:: sendEmailViaSunbird - successfully sent OTP Email; UserId: %s, UserEmail: %s; TimeTaken: %s",
+							context.getUser().getId(), userEmail, (System.currentTimeMillis() - startTime)));
 					return true;
 				} else {
-					logger.error(
-							String.format("Failed to send email for OTP Login. Received StatusCode: %s", statusCode));
+					logger.info(String.format(
+							"Action:: sendEmailViaSunbird - Failed to send OTP Email; UserId: %s, UserEmail: %s; TimeTaken: %s, StatusCode: %s",
+							context.getUser().getId(), userEmail, (System.currentTimeMillis() - startTime),statusCode));
 				}
 			}
 		} catch (Exception e) {
-			logger.error("Action:: sendEmailViaSunbird - Failed to send OTP Email. Exception: ", e);
+			logger.info(String.format(
+							"Action:: sendEmailViaSunbird - Failed to send OTP Email; UserId: %s, UserEmail: %s; TimeTaken: %s, Exception: %s",
+							context.getUser().getId(), userEmail, (System.currentTimeMillis() - startTime), e));
 		}
 		return false;
 	}
@@ -629,9 +631,9 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		return retValue;
 	}
 
-	private boolean sendSmsViaNetCore(String mobileNumber, String otp, String expiryTime) {
+	private boolean sendSmsViaNetCore(String userId, String mobileNumber, String otp, String expiryTime) {
 		mobileNumber = "91" + mobileNumber;
-		boolean retValue = NetCoreSMSProvider.getInstance().send(mobileNumber, otp, expiryTime,
+		boolean retValue = NetCoreSMSProvider.getInstance().send(userId, mobileNumber, otp, expiryTime,
 				SmsConfigurationConstants.NIC_LOGIN_OTP_SMS_TYPE);
 		return retValue;
 	}
