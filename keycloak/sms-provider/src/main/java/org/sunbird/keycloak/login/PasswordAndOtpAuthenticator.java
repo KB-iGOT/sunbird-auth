@@ -529,9 +529,9 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 				}
 			}
 		} catch (Exception e) {
-			logger.info(String.format(
-							"Action:: sendEmailViaSunbird - Failed to send OTP Email; UserEmail: %s; TimeTaken: %s, Exception: %s",
-							userEmail, (System.currentTimeMillis() - startTime), e));
+			logger.error(String.format(
+					"Action:: sendEmailViaSunbird - Failed to send OTP Email; UserEmail: %s; TimeTaken: %s ms, Exception: %s",
+					userEmail, (System.currentTimeMillis() - startTime), e.getMessage()), e);
 		}
 		return false;
 	}
