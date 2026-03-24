@@ -139,8 +139,8 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 					context.success();
 				}
 				logger.info(String.format(
-						"Action:: validateForm - Validation of username + password is completed for userId: %s, isSuccess: %s",
-						context.getUser().getId(), isSuccess));
+						"Action:: validateForm - Validation of username + password is completed with Status: %s",
+						isSuccess));
 				break;
 			default:
 				authenticate(context);
@@ -173,8 +173,8 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 			goErrorPage(context, Constants.PAGE_INPUT_OTP, Constants.INVALID_OTP_ENTERED);
 		}
 		logger.info(String.format(
-				"Action:: authenticateOtp - completed for userId: %s, status: %s",
-				context.getUser().getId(), status.name()));
+				"Action:: authenticateOtp - completed for with status: %s",
+				status.name()));
 	}
 
 	private void goErrorPage(AuthenticationFlowContext context, String message) {
