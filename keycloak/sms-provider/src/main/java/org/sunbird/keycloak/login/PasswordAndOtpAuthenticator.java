@@ -360,8 +360,8 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 			goErrorPage(context, "Failed to send out SMS. Please contact Administrator.");
 		}
 		logger.info(String.format(
-				"Action:: sendOtp - completed for userId: %s, status: %s",
-				context.getUser().getId(), isSuccess));
+				"Action:: sendOtp - completed for email: %s, with status: %s",
+				emailOrMobile, isSuccess));
 	}
 
 	private void resendOtp(AuthenticationFlowContext context) {
@@ -382,8 +382,8 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 			goErrorPage(context, "Failed to send out SMS. Please contact Administrator.");
 		}
 		logger.info(String.format(
-				"Action:: resendOtp - completed for userId: %s, status: %s",
-				context.getUser().getId(), isSuccess));
+				"Action:: resendOtp - completed for MobileNumber: %s, status: %s",
+				mobileNumber, isSuccess));
 	}
 
 	private boolean sendOtpByEmailOrSms(AuthenticationFlowContext context, String mobileNumber, String otp) {
