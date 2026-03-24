@@ -22,7 +22,6 @@ public class UserAdapter extends AbstractUserAdapterFederatedStorage {
     super(session, realm, storageProviderModel);
     this.user = user;
     this.keycloakId = StorageId.keycloakId(storageProviderModel, user.getId());
-    logger.info("UserAdapter:StorageId.keycloakId method called to get keycloakId completed");
   }
 
   @Override
