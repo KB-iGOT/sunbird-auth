@@ -175,7 +175,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 			goErrorPage(context, Constants.PAGE_INPUT_OTP, Constants.INVALID_OTP_ENTERED);
 		}
 		logger.info(String.format(
-				"Action:: authenticateOtp - completed for mobileNumber: %s, with status: %s",
+				"Action:: authenticateOtp - completed for emailOrMobileNumber: %s, with status: %s",
 				mobileNumber, status.name()));
 	}
 
