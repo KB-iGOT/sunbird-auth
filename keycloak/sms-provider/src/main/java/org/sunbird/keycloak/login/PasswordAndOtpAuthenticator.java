@@ -158,6 +158,8 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 	}
 
 	private void authenticateOtp(AuthenticationFlowContext context) {
+		String mobileNumber = context.getAuthenticationSession()
+				.getAuthNote(Constants.ATTEMPTED_EMAIL_OR_MOBILE_NUMBER);
 		CODE_STATUS status = validateCode(context);
 		if (status == CODE_STATUS.VALID) {
 			context.getAuthenticationSession().removeAuthNote(Constants.SESSION_OTP_CODE);
@@ -173,8 +175,8 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 			goErrorPage(context, Constants.PAGE_INPUT_OTP, Constants.INVALID_OTP_ENTERED);
 		}
 		logger.info(String.format(
-				"Action:: authenticateOtp - completed for with status: %s",
-				status.name()));
+				"Action:: authenticateOtp - completed for mobileNumber: %s, with status: %s",
+				mobileNumber, status.name()));
 	}
 
 	private void goErrorPage(AuthenticationFlowContext context, String message) {
@@ -513,7 +515,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		long startTime = System.currentTimeMillis();
 		try {
 			response = HttpClient.post(request,
-					(System.getenv(Constants.SUNBIRD_LMS_BASE_URL) + Constants.SEND_NOTIFICATION_URI),
+					(System.getenv(Constants.SUNBIRD_USER_SERVICE_BASE_URL) + Constants.SEND_NOTIFICATION_LOCAL_URL),
 					System.getenv(Constants.SUNBIRD_LMS_AUTHORIZATION));
 			if (response.getStatusLine() != null) {
 				int statusCode = response.getStatusLine().getStatusCode();
@@ -529,9 +531,9 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 				}
 			}
 		} catch (Exception e) {
-			logger.error(String.format(
-					"Action:: sendEmailViaSunbird - Failed to send OTP Email; UserEmail: %s; TimeTaken: %s ms, Exception: %s",
-					userEmail, (System.currentTimeMillis() - startTime), e.getMessage()), e);
+			logger.info(String.format(
+							"Action:: sendEmailViaSunbird - Exception while sending OTP Email; UserEmail: %s; TimeTaken: %s, Exception: %s",
+							userEmail, (System.currentTimeMillis() - startTime), e));
 		}
 		return false;
 	}
