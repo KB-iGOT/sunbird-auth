@@ -143,7 +143,7 @@ public class SinchSMSProvider {
                         + "&pusheid=" + URLEncoder.encode(userId, StandardCharsets.UTF_8.name())
                         + "&pushepwd=" + URLEncoder.encode(password, StandardCharsets.UTF_8.name())
                         + "&msisdn=" + URLEncoder.encode(mobileNumber, StandardCharsets.UTF_8.name())
-                        + "&sender=iGOTKB&tc=1&alert=1"
+                        + "&sender=iGOTKB"
                         + "&msgtext=" + urlEncodedMsg;
 
                 long startTime = System.currentTimeMillis();
