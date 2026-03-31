@@ -39,4 +39,11 @@ public final class SmsConfigurationConstants {
     public static final String AMNEX_SMS_TEMPLATE_ID = "Template_ID";
 
     public static final String NETCORE_SMS_FEEDID = "feedId";
+    public static final String SINCH_APP_ID = "appId";
+    public static final String SINCH_USER_ID = "userId";
+    public static final String SINCH_USER_PASSWOD = "password";
+    public static final String SINCH_ENTERPRISE_ID = "enterpriseId";
+    public static final String SINCH_SUB_ENTERPRISE_ID = "subEnterpriseId";
+    public static final String CONTENT_TYPE = "contentType";
+    public static final String ALERT = "alert";
 }
