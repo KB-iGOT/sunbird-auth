@@ -54,6 +54,7 @@ import org.sunbird.sms.SmsConfigurationConstants;
 import org.sunbird.sms.amnex.AmnexSmsProvider;
 import org.sunbird.sms.netcore.NetCoreSMSProvider;
 import org.sunbird.sms.nic.NicSmsProvider;
+import org.sunbird.sms.sinch.SinchSMSProvider;
 
 import com.amazonaws.util.CollectionUtils;
 
@@ -344,7 +345,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		Map<String, String> attributes = generateOTP(context);
 
 		// Send the key into the User Mobile Phone
-		boolean isSuccess = sendOtpByEmailOrSms(context, emailOrMobile, attributes.get(Constants.SESSION_OTP_CODE));
+		boolean isSuccess = sendOtpByEmailOrSms(context, emailOrMobile, attributes.get(Constants.SESSION_OTP_CODE), false);
 		if (isSuccess) {
 			// SMS is sent successfully, let's save the details in session and return the
 			// necessary page.
@@ -376,7 +377,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		context.getAuthenticationSession().setAuthNote(Constants.SESSION_OTP_CODE,
 				attributes.get(Constants.SESSION_OTP_CODE));
 		// Send the key into the User Mobile Phone
-		boolean isSuccess = sendOtpByEmailOrSms(context, mobileNumber, attributes.get(Constants.SESSION_OTP_CODE));
+		boolean isSuccess = sendOtpByEmailOrSms(context, mobileNumber, attributes.get(Constants.SESSION_OTP_CODE), true);
 		if (isSuccess) {
 			goPage(context, Constants.PAGE_INPUT_OTP);
 		} else {
@@ -388,7 +389,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 				mobileNumber, isSuccess));
 	}
 
-	private boolean sendOtpByEmailOrSms(AuthenticationFlowContext context, String mobileNumber, String otp) {
+	private boolean sendOtpByEmailOrSms(AuthenticationFlowContext context, String mobileNumber, String otp, boolean isResend) {
 		boolean retValue = false;
 		String userNameType = isEmailOrMobileNumber(mobileNumber);
 		switch (userNameType) {
@@ -413,7 +414,11 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 				} else if (Constants.NETCORE_SMS_PROVIDER.equalsIgnoreCase(smsProvider)) {
 					long ttl = KeycloakSmsAuthenticatorUtil.getConfigLong(context.getAuthenticatorConfig(),
 							KeycloakSmsAuthenticatorConstants.CONF_PRP_SMS_CODE_TTL, 5 * 60L);
-					retValue = sendSmsViaNetCore(mobileNumber, otp, String.valueOf(ttl / 60));
+					if (isResend) {
+						retValue = sendSmsViaSinch(mobileNumber, otp, String.valueOf(ttl / 60));
+					} else {
+						retValue = sendSmsViaNetCore(mobileNumber, otp, String.valueOf(ttl / 60));
+					}
 				} else {
 					logger.error(String.format(
 							"SMS Provider is not configured property. current value: %s. Execpected value: NIC / MSG91",
@@ -638,6 +643,12 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		boolean retValue = NetCoreSMSProvider.getInstance().send(mobileNumber, otp, expiryTime,
 				SmsConfigurationConstants.NIC_LOGIN_OTP_SMS_TYPE);
 		return retValue;
+	}
+
+	private boolean sendSmsViaSinch(String mobileNumber, String otp, String expiryTime) {
+		mobileNumber = "91" + mobileNumber;
+		return SinchSMSProvider.getInstance().send(mobileNumber, otp, expiryTime,
+				SmsConfigurationConstants.NIC_LOGIN_OTP_SMS_TYPE);
 	}
 
 	private String generateSecretKey() {
