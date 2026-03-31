@@ -359,11 +359,27 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 			context.setUser(user);
 			goPage(context, Constants.PAGE_INPUT_OTP, StringUtils.EMPTY, attributes);
 		} else {
-			context.getEvent().getEvent().setError("SMS_SEND_FAILED");
-			goErrorPage(context, "Failed to send out SMS. Please contact Administrator.");
+			// 1st Attempt is failed, will try the next provider
+			isSuccess = sendOtpByEmailOrSms(context, emailOrMobile, attributes.get(Constants.SESSION_OTP_CODE), true);
+			if (isSuccess) {
+				// SMS is sent successfully, let's save the details in session and return the
+				// necessary page.
+				context.getAuthenticationSession().setAuthNote(Constants.SESSION_OTP_CODE,
+						attributes.get(Constants.SESSION_OTP_CODE));
+				context.getAuthenticationSession().setAuthNote(Constants.SESSION_OTP_EXPIRE_TIME,
+						attributes.get(KeycloakSmsAuthenticatorConstants.CONF_PRP_SMS_CODE_TTL));
+				context.getAuthenticationSession().setAuthNote(Constants.ATTEMPTED_EMAIL_OR_MOBILE_NUMBER, emailOrMobile);
+				context.getAuthenticationSession().setAuthNote(Details.REDIRECT_URI, redirectUri);
+
+				context.setUser(user);
+				goPage(context, Constants.PAGE_INPUT_OTP, StringUtils.EMPTY, attributes);
+			} else {
+				context.getEvent().getEvent().setError("SMS_SEND_FAILED");
+				goErrorPage(context, "Failed to send out SMS. Please contact Administrator.");
+			}
 		}
 		logger.info(String.format(
-				"Action:: sendOtp - completed for email: %s, with status: %s",
+				"Action:: sendOtp - completed for emailOrMobile: %s, with status: %s",
 				emailOrMobile, isSuccess));
 	}
 

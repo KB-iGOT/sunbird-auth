@@ -137,16 +137,14 @@ public class SinchSMSProvider {
 
                 String urlEncodedMsg = URLEncoder.encode(message, StandardCharsets.UTF_8.name());
 
-                // Build GET URL:  {{url}}?enterpriseid=&subEnterpriseid=&pusheid=&pushepwd=&msisdn=&sender=iGOTKB&msgtext=
                 String getUrl = urlStr
                         + "?enterpriseid=" + URLEncoder.encode(enterpriseId, StandardCharsets.UTF_8.name())
                         + "&subEnterpriseid=" + URLEncoder.encode(subEnterpriseId, StandardCharsets.UTF_8.name())
                         + "&pusheid=" + URLEncoder.encode(userId, StandardCharsets.UTF_8.name())
                         + "&pushepwd=" + URLEncoder.encode(password, StandardCharsets.UTF_8.name())
                         + "&msisdn=" + URLEncoder.encode(mobileNumber, StandardCharsets.UTF_8.name())
-                        + "&sender=iGOTKB"
-                        + "&msgtext=" + urlEncodedMsg
-                        + "&pushid=" + URLEncoder.encode(templateId, StandardCharsets.UTF_8.name());
+                        + "&sender=iGOTKB&tc=1&alert=1"
+                        + "&msgtext=" + urlEncodedMsg;
 
                 long startTime = System.currentTimeMillis();
                 HttpGet get = new HttpGet(getUrl);
