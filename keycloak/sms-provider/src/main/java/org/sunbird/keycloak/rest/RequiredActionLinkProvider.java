@@ -8,7 +8,6 @@ import java.util.Map;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.Status;
@@ -96,30 +95,26 @@ public class RequiredActionLinkProvider implements RealmResourceProvider {
             response.put(Constants.LINK, link);
             return Response.ok(response).build();
         } catch (Exception e) {
-            // Fix: Wrap ErrorResponse in WebApplicationException
-            throw new WebApplicationException(ErrorResponse.error(Constants.ERROR_CREATE_LINK, Status.INTERNAL_SERVER_ERROR));
+            throw ErrorResponse.error(Constants.ERROR_CREATE_LINK, Status.INTERNAL_SERVER_ERROR);
         }
     }
 
     private UserModel getEnabledUserByUsernameOrError(String userName) {
         logger.debug("RestResourceProvider: getEnabledUserByUsernameOrError called");
         if (StringUtils.isBlank(userName)) {
-            throw new WebApplicationException(
-                    ErrorResponse.error(MessageFormat.format(Constants.ERROR_MANDATORY_PARAM_MISSING,
-                            userName, Constants.USERNAME), Status.BAD_REQUEST));
+            throw ErrorResponse.error(MessageFormat.format(Constants.ERROR_MANDATORY_PARAM_MISSING,
+                    userName, Constants.USERNAME), Status.BAD_REQUEST);
         }
         UserModel user = KeycloakModelUtils.findUserByNameOrEmail(session,
                 session.getContext().getRealm(), userName);
 
         if (user == null) {
-            throw new WebApplicationException(
-                    ErrorResponse.error(MessageFormat.format(Constants.ERROR_INVALID_PARAMETER_VALUE,
-                            userName, Constants.USERNAME), Status.BAD_REQUEST));
+            throw ErrorResponse.error(MessageFormat.format(Constants.ERROR_INVALID_PARAMETER_VALUE,
+                    userName, Constants.USERNAME), Status.BAD_REQUEST);
         }
 
         if (!user.isEnabled()) {
-            throw new WebApplicationException(
-                    ErrorResponse.error(Constants.ERROR_USER_IS_DISABLED, Status.BAD_REQUEST));
+            throw ErrorResponse.error(Constants.ERROR_USER_IS_DISABLED, Status.BAD_REQUEST);
         }
 
         return user;
@@ -127,9 +122,8 @@ public class RequiredActionLinkProvider implements RealmResourceProvider {
 
     private List<String> getRequiredActionListOrError(String actionName) {
         if (StringUtils.isBlank(actionName)) {
-            throw new WebApplicationException(
-                    ErrorResponse.error(MessageFormat.format(Constants.ERROR_MANDATORY_PARAM_MISSING,
-                            actionName, Constants.REQUIRED_ACTION), Status.BAD_REQUEST));
+            throw ErrorResponse.error(MessageFormat.format(Constants.ERROR_MANDATORY_PARAM_MISSING,
+                    actionName, Constants.REQUIRED_ACTION), Status.BAD_REQUEST);
         }
 
         List<String> requiredActionList = new ArrayList<>();
@@ -141,9 +135,8 @@ public class RequiredActionLinkProvider implements RealmResourceProvider {
                 requiredActionList.add(UserModel.RequiredAction.VERIFY_EMAIL.name());
                 break;
             default:
-                throw new WebApplicationException(
-                        ErrorResponse.error(MessageFormat.format(Constants.ERROR_INVALID_PARAMETER_VALUE,
-                                actionName, Constants.REQUIRED_ACTION), Status.BAD_REQUEST));
+                throw ErrorResponse.error(MessageFormat.format(Constants.ERROR_INVALID_PARAMETER_VALUE,
+                        actionName, Constants.REQUIRED_ACTION), Status.BAD_REQUEST);
         }
 
         return requiredActionList;
@@ -159,9 +152,8 @@ public class RequiredActionLinkProvider implements RealmResourceProvider {
                 expirationInSecs = Constants.DEFAULT_LINK_EXPIRATION_IN_SECS;
             }
         } catch (Exception ex) {
-            throw new WebApplicationException(
-                    ErrorResponse.error(MessageFormat.format(Constants.ERROR_INVALID_PARAMETER_VALUE,
-                            expirationInSecsStr, Constants.EXPIRATION_IN_SECS), Status.BAD_REQUEST));
+            throw ErrorResponse.error(MessageFormat.format(Constants.ERROR_INVALID_PARAMETER_VALUE,
+                    expirationInSecsStr, Constants.EXPIRATION_IN_SECS), Status.BAD_REQUEST);
         }
 
         return expirationInSecs;
@@ -171,12 +163,10 @@ public class RequiredActionLinkProvider implements RealmResourceProvider {
         logger.debug("RestResourceProvider: checkRealmAdminAccess called");
         AuthResult authResult = new AppAuthManager.BearerTokenAuthenticator(session).authenticate();
         if (authResult == null) {
-            throw new WebApplicationException(
-                    ErrorResponse.error(Constants.ERROR_NOT_AUTHORIZED, Status.UNAUTHORIZED));
+            throw ErrorResponse.error(Constants.ERROR_NOT_AUTHORIZED, Status.UNAUTHORIZED);
         } else if (authResult.getToken().getRealmAccess() == null
                 || !authResult.getToken().getRealmAccess().isUserInRole(Constants.ADMIN)) {
-            throw new WebApplicationException(
-                    ErrorResponse.error(Constants.ERROR_REALM_ADMIN_ROLE_ACCESS, Status.FORBIDDEN));
+            throw ErrorResponse.error(Constants.ERROR_REALM_ADMIN_ROLE_ACCESS, Status.FORBIDDEN);
         }
     }
 
@@ -185,9 +175,8 @@ public class RequiredActionLinkProvider implements RealmResourceProvider {
         if (StringUtils.isNotBlank(redirectUri)) {
             String redirect = RedirectUtils.verifyRedirectUri(session, redirectUri, client); // client is correct here
             if (redirect == null) {
-                throw new WebApplicationException(
-                        ErrorResponse.error(MessageFormat.format(Constants.ERROR_INVALID_PARAMETER_VALUE,
-                                redirectUri, Constants.REDIRECT_URI), Status.BAD_REQUEST));
+                throw ErrorResponse.error(MessageFormat.format(Constants.ERROR_INVALID_PARAMETER_VALUE,
+                        redirectUri, Constants.REDIRECT_URI), Status.BAD_REQUEST);
             }
         }
     }
@@ -195,19 +184,16 @@ public class RequiredActionLinkProvider implements RealmResourceProvider {
     private ClientModel getClientByClientIdOrError(String clientId) {
         logger.debug("RestResourceProvider: getClientByClientIdOrError called");
         if (StringUtils.isBlank(clientId)) {
-            throw new WebApplicationException(
-                    ErrorResponse.error(MessageFormat.format(Constants.ERROR_MANDATORY_PARAM_MISSING,
-                            clientId, Constants.CLIENT_ID), Status.BAD_REQUEST));
+            throw ErrorResponse.error(MessageFormat.format(Constants.ERROR_MANDATORY_PARAM_MISSING,
+                    clientId, Constants.CLIENT_ID), Status.BAD_REQUEST);
         }
         ClientModel client = session.getContext().getRealm().getClientByClientId(clientId);
         if (client == null) {
-            throw new WebApplicationException(
-                    ErrorResponse.error(MessageFormat.format(Constants.ERROR_INVALID_PARAMETER_VALUE,
-                            clientId, Constants.CLIENT_ID), Status.BAD_REQUEST));
+            throw ErrorResponse.error(MessageFormat.format(Constants.ERROR_INVALID_PARAMETER_VALUE,
+                    clientId, Constants.CLIENT_ID), Status.BAD_REQUEST);
         }
         if (!client.isEnabled()) {
-            throw new WebApplicationException(
-                    ErrorResponse.error(clientId + Constants.ERROR_NOT_ENABLED, Status.BAD_REQUEST));
+            throw ErrorResponse.error(clientId + Constants.ERROR_NOT_ENABLED, Status.BAD_REQUEST);
         }
         return client;
     }

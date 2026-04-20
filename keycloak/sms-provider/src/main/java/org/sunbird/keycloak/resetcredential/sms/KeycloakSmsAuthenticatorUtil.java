@@ -40,7 +40,7 @@ public class KeycloakSmsAuthenticatorUtil {
 
         String value = defaultValue;
 
-        if (config.getConfig() != null) {
+        if (config != null && config.getConfig() != null) {
             // Get value
             value = config.getConfig().get(configName);
         }
@@ -56,7 +56,7 @@ public class KeycloakSmsAuthenticatorUtil {
 
         Long value = defaultValue;
 
-        if (config.getConfig() != null) {
+        if (config != null && config.getConfig() != null) {
             // Get value
             Object obj = config.getConfig().get(configName);
             try {

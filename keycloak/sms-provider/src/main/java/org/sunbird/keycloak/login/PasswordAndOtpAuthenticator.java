@@ -115,7 +115,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
      */
     @Override
     public void action(AuthenticationFlowContext context) {
-        MultivaluedMap<String, String> qParamMap = context.getHttpRequest().getUri().getQueryParameters(false);
+        MultivaluedMap<String, String> qParamMap = context.getHttpRequest().getUri().getQueryParameters();
         Iterator<Entry<String, List<String>>> itr = qParamMap.entrySet().iterator();
         while (itr.hasNext()) {
             Entry<String, List<String>> entry = itr.next();
@@ -355,7 +355,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
             case Constants.PHONE:
                 AuthenticatorConfigModel configModel = context.getAuthenticatorConfig();
                 String smsProvider = null;
-                if (configModel.getConfig() != null) {
+                if (configModel != null && configModel.getConfig() != null) {
                     smsProvider = configModel.getConfig().get(KeycloakSmsAuthenticatorConstants.CONF_PRP_SMS_PROVIDER);
                 }
                 logger.info("SMS for OTP initiated with provider : " + smsProvider);
@@ -703,7 +703,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
             }
         }
 
-        if (!validatePassword(context, user, inputData, false)) {
+        if (!validatePassword(context, user, inputData)) {
             context.getEvent().getEvent().setError(Errors.INVALID_USER_CREDENTIALS);
             return false;
         }

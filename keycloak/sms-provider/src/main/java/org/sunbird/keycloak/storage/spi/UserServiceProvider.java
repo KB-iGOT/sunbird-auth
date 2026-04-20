@@ -118,12 +118,22 @@ public class UserServiceProvider
 
     @Override
     public Stream<UserModel> searchForUserStream(RealmModel realm, Map<String, String> params) {
+        String search = params.get(UserModel.SEARCH);
+        if (search == null) {
+            search = params.get(UserModel.USERNAME);
+        }
+        if (search == null) {
+            search = params.get(UserModel.EMAIL);
+        }
+        if (search != null && !search.trim().isEmpty()) {
+            return searchForUserStream(realm, search);
+        }
         return Stream.empty();
     }
 
     @Override
     public Stream<UserModel> searchForUserStream(RealmModel realm, Map<String, String> params, Integer firstResult, Integer maxResults) {
-        return Stream.empty();
+        return searchForUserStream(realm, params);
     }
 
     @Override
