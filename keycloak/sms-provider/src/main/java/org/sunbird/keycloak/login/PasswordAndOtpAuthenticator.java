@@ -193,6 +193,10 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		        (Constants.EC_LOGIN_PAGE.equals(context.getAuthenticationSession().getAuthNote(Constants.AUTH_NOTE_LOGIN_PAGE)))) {
 			errorPage = Constants.EC_LOGIN_PAGE;
 		}
+		if (StringUtils.isNotBlank(context.getAuthenticationSession().getAuthNote(Constants.AUTH_NOTE_LOGIN_PAGE)) &&
+		        (Constants.AI_ASSESSMENT_LOGIN_PAGE.equals(context.getAuthenticationSession().getAuthNote(Constants.AUTH_NOTE_LOGIN_PAGE)))) {
+			errorPage = Constants.AI_ASSESSMENT_LOGIN_PAGE;
+		}
 
 		String error = context.getEvent().getEvent().getError();
 		String errMsg = "Internal Server Error!";
