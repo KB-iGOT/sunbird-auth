@@ -130,12 +130,6 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
      */
     @Override
     public void action(AuthenticationFlowContext context) {
-        logger.info("[KC24_AUTH] ===== action() ENTRY =====");
-        logger.info("[KC24_AUTH] ===== action() ENTRY And CONTEXT is  =====" + context);
-        logger.info("[KC24_AUTH] ===== action()  CONTEXT and HTTPREQUEST  =====" + context.getHttpRequest());
-        logger.info("[KC24_AUTH] ===== action()  CONTEXT and HTTPREQUEST and QUERY PARAMETERS  ====="
-                + context.getHttpRequest().getUri().getQueryParameters());
-        // Log all query parameters - use getQueryParameters() for Keycloak 24 compatibility
         MultivaluedMap<String, String> qParamMap = context.getHttpRequest().getUri().getQueryParameters();
         Iterator<Entry<String, List<String>>> itr = qParamMap.entrySet().iterator();
         while (itr.hasNext()) {
@@ -395,7 +389,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
             case Constants.PHONE:
                 AuthenticatorConfigModel configModel = context.getAuthenticatorConfig();
                 String smsProvider = null;
-                if (configModel.getConfig() != null) {
+                if (configModel != null && configModel.getConfig() != null) {
                     smsProvider = configModel.getConfig().get(KeycloakSmsAuthenticatorConstants.CONF_PRP_SMS_PROVIDER);
                 }
                 logger.info("SMS for OTP initiated with provider : " + smsProvider);
@@ -752,11 +746,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
             logger.info("[KC24_AUTH] Brute force check passed");
         }
 
-        // Call our custom validatePassword (3 params) which handles AES decryption,
-        // NOT the parent's validatePassword (4 params) which uses raw form password.
-        logger.info("[KC24_AUTH] >>> Calling custom validatePassword(3 params) for user: " + user.getId());
         if (!validatePassword(context, user, inputData)) {
-            logger.warn("[KC24_AUTH] <<< validatePassword returned FALSE - credentials invalid");
             context.getEvent().getEvent().setError(Errors.INVALID_USER_CREDENTIALS);
             return false;
         }

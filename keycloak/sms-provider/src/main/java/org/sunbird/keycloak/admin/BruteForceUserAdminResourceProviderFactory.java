@@ -1,6 +1,5 @@
 package org.sunbird.keycloak.admin;
 
-import org.keycloak.Config;
 import org.keycloak.Config.Scope;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.KeycloakSessionFactory;
@@ -11,7 +10,7 @@ import org.jboss.logging.Logger;
 public class BruteForceUserAdminResourceProviderFactory implements AdminRealmResourceProviderFactory {
 
     private static final Logger logger = Logger.getLogger(BruteForceUserAdminResourceProviderFactory.class);
-    public static final String ID = "sunbird-brute-force-admin";
+    public static final String ID = "sunbird-admin-ext";
 
     @Override
     public String getId() {
