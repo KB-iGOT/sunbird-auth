@@ -73,8 +73,6 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 	 */
 	@Override
 	public void authenticate(AuthenticationFlowContext context) {
-		logger.info(String.format(
-						"Action:: validateForm - Validation of username + password is completed with Status: %s"));
 		String secretKey = context.getAuthenticationSession().getAuthNote(Constants.SECRET_KEY);
 		if (StringUtils.isBlank(secretKey)) {
 			// Generate the secret key
@@ -197,10 +195,6 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 		if (StringUtils.isNotBlank(context.getAuthenticationSession().getAuthNote(Constants.AUTH_NOTE_LOGIN_PAGE)) &&
 		        (Constants.EC_LOGIN_PAGE.equals(context.getAuthenticationSession().getAuthNote(Constants.AUTH_NOTE_LOGIN_PAGE)))) {
 			errorPage = Constants.EC_LOGIN_PAGE;
-		}
-		if (StringUtils.isNotBlank(context.getAuthenticationSession().getAuthNote(Constants.AUTH_NOTE_LOGIN_PAGE)) &&
-		        (Constants.AI_ASSESSMENT_LOGIN_PAGE.equals(context.getAuthenticationSession().getAuthNote(Constants.AUTH_NOTE_LOGIN_PAGE)))) {
-			errorPage = Constants.AI_ASSESSMENT_LOGIN_PAGE;
 		}
 		if (StringUtils.isNotBlank(context.getAuthenticationSession().getAuthNote(Constants.AUTH_NOTE_LOGIN_PAGE)) &&
 		        (Constants.AI_ASSESSMENT_LOGIN_PAGE.equals(context.getAuthenticationSession().getAuthNote(Constants.AUTH_NOTE_LOGIN_PAGE)))) {
