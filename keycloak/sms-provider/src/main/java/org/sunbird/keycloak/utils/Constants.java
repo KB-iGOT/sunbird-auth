@@ -113,5 +113,5 @@ public class Constants {
 	public static final String IIIDEM = "iiidem";
 	public static final String AUTH_NOTE_LOGIN_PAGE = "auth_note_login_page";
 	public static final String AI_ASSESSMENT_LOGIN = "/ai-assessment-login/";
-	public static final String AI_ASSESSMENT_LOGIN_PAGE="ai-assessment-login.ftl"
+	public static final String AI_ASSESSMENT_LOGIN_PAGE="ai-assessment-login.ftl";
 }
