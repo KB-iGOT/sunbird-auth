@@ -57,10 +57,7 @@ import org.sunbird.sms.SmsConfigurationConstants;
 import org.sunbird.sms.amnex.AmnexSmsProvider;
 import org.sunbird.sms.netcore.NetCoreSMSProvider;
 import org.sunbird.sms.nic.NicSmsProvider;
-import org.keycloak.credential.CredentialInput;
-import org.keycloak.representations.idm.CredentialRepresentation;
-import java.util.LinkedList;
-import java.util.List;
+import org.sunbird.sms.sinch.SinchSMSProvider;
 
 import com.amazonaws.util.CollectionUtils;
 
@@ -816,7 +813,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
         logger.info("[KC24_DECRYPT] encryptedPassword length: " + (encryptedPassword != null ? encryptedPassword.length() : "null"));
         logger.info("[KC24_DECRYPT] secretKey length: " + (secretKey != null ? secretKey.length() : "null"));
         logger.info("[KC24_DECRYPT] iv length: " + (iv != null ? iv.length() : "null"));
-        
+
         // ENHANCED DEBUGGING - Show full details for troubleshooting
         if (secretKey != null) {
             logger.info("[KC24_DECRYPT] DEBUG - FULL secretKey: '" + secretKey + "'");
@@ -871,7 +868,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
             logger.error("[KC24_DECRYPT] BadPaddingException - KEY MISMATCH! Client and server using different keys");
             logger.error("[KC24_DECRYPT] This means client encrypted with one key, server trying to decrypt with different key");
             logger.error("[KC24_DECRYPT] Error details: " + e.getMessage(), e);
-            
+
             // Try alternative: maybe client is using a default/hardcoded key
             String[] alternativeKeys = {
                 "1234567890123456", // Common default key
@@ -880,7 +877,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
                 secretKey.toLowerCase(), // Lowercase version
                 secretKey.toUpperCase()  // Uppercase version
             };
-            
+
             for (String altKey : alternativeKeys) {
                 try {
                     logger.info("[KC24_DECRYPT] Trying alternative key: " + altKey.substring(0, Math.min(4, altKey.length())) + "...");
@@ -888,7 +885,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
                     SecretKeySpec altKeySpec = new SecretKeySpec(altKey.getBytes(StandardCharsets.UTF_8), "AES");
                     IvParameterSpec ivSpec = new IvParameterSpec(Base64.getDecoder().decode(iv));
                     altCipher.init(Cipher.DECRYPT_MODE, altKeySpec, ivSpec);
-                    
+
                     byte[] decodedBytes = Base64.getDecoder().decode(encryptedPassword);
                     byte[] decryptedBytes = altCipher.doFinal(decodedBytes);
                     String decryptedPassword = new String(decryptedBytes, StandardCharsets.UTF_8);
@@ -898,27 +895,27 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
                     // Continue to next alternative key
                 }
             }
-            
+
             logger.warn("[KC24_DECRYPT] FALLBACK: All decryption attempts failed, using encrypted string as plaintext");
             if (encryptedPassword != null && encryptedPassword.length() > 4 && encryptedPassword.length() < 100) {
                 logger.info("[KC24_DECRYPT] Using encryptedPassword as plaintext fallback, length: " + encryptedPassword.length());
                 return encryptedPassword;
             }
-            
+
             throw new RuntimeException("Error while decrypting password - key mismatch", e);
         } catch (Exception e) {
             logger.error("[KC24_DECRYPT] Other exception during decryption: " + e.getClass().getName() + " - " + e.getMessage(), e);
             logger.warn("[KC24_DECRYPT] FALLBACK: Using encrypted string as plaintext");
-            
+
             if (encryptedPassword != null && encryptedPassword.length() > 4 && encryptedPassword.length() < 100) {
                 logger.info("[KC24_DECRYPT] Using encryptedPassword as plaintext fallback, length: " + encryptedPassword.length());
                 return encryptedPassword;
             }
-            
+
             throw new RuntimeException("Error while decrypting password", e);
         }
     }
-    
+
     // Helper method for hex debugging
     private String bytesToHex(byte[] bytes) {
         StringBuilder sb = new StringBuilder();
@@ -944,6 +941,35 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
             }
         }
         return false;
+    }
+
+    /**
+     * Ensures secretKey exists in the authentication session. Generates a new one if missing.
+     * This prevents NullPointerException in FreeMarker templates when forms are rendered.
+     *
+     * @param context The authentication flow context
+     */
+    private void ensureSecretKey(AuthenticationFlowContext context) {
+        if (StringUtils.isBlank(context.getAuthenticationSession().getAuthNote(Constants.SECRET_KEY))) {
+            context.getAuthenticationSession().setAuthNote(Constants.SECRET_KEY, generateSecretKey());
+            logger.info("Generated new secret key.");
+        }
+    }
+
+    /**
+     * Ensures secretKey is available in the authentication session and returns a LoginFormsProvider
+     * with the secretKey attribute set. This prevents NullPointerException in FreeMarker templates.
+     *
+     * @param context The authentication flow context
+     * @return LoginFormsProvider with secretKey attribute set
+     */
+    private LoginFormsProvider getLoginFormsProviderWithSecretKey(AuthenticationFlowContext context) {
+        ensureSecretKey(context);
+        LoginFormsProvider formsProvider = context.form();
+        formsProvider.setAttribute(Constants.SECRET_KEY,
+            context.getAuthenticationSession().getAuthNote(Constants.SECRET_KEY)
+        );
+        return formsProvider;
     }
 
 }

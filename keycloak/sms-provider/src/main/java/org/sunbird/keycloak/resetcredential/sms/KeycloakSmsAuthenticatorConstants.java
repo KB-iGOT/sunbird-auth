@@ -23,4 +23,5 @@ public class KeycloakSmsAuthenticatorConstants {
     public static final String NIC_SMS_PROVIDER_CONFIGURATIONS_PATH = "sms-provider/NicSmsCreds.json";
     public static final String AMNEX_SMS_PROVIDER_CONFIGURATIONS_PATH = "sms-provider/AmnexSmsCreds.json";
     public static final String NETCORE_SMS_PROVIDER_CONFIGURATIONS_PATH = "sms-provider/NetCoreSmsCreds.json";
+    public static final String SINCH_SMS_PROVIDER_CONFIGURATIONS_PATH = "sms-provider/SinchSmsCreds.json";
 }

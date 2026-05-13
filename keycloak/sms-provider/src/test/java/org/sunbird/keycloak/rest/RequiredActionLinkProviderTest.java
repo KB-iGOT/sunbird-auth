@@ -48,7 +48,9 @@ import org.sunbird.keycloak.utils.Constants;
     AppAuthManager.class, AppAuthManager.BearerTokenAuthenticator.class, RequiredActionLinkProvider.class,
     UriInfo.class, AccessToken.class, Access.class, AuthResult.class, LoginActionsService.class,
     ExecuteActionsActionToken.class })
-@PowerMockIgnore({ "javax.management.*", "javax.net.ssl.*", "javax.security.*", "jakarta.ws.rs.*" })
+@PowerMockIgnore({ "javax.management.*", "javax.net.ssl.*", "javax.security.*", "jakarta.ws.rs.*",
+    "javax.crypto.*", "com.sun.org.apache.xerces.*", "javax.xml.*", "org.xml.*", "org.w3c.dom.*",
+    "com.sun.org.apache.xalan.*", "javax.activation.*", "javax.net.*" })
 public class RequiredActionLinkProviderTest {
 
   private static KeycloakSession session;

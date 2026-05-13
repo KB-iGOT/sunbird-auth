@@ -48,7 +48,7 @@
                                 <#if skipLink??>
                                 <#else>
                                     <#if pageRedirectUri??>
-                                        <p class="signUpMsg">You have activated your account successfully. You will need to sign in to start using it. You will be redirected to the home page automatically</p>
+                                        <p class="signUpMsg">Your password has been updated successfully. You will need to sign in to start using it. You will be redirected to the home page automatically</p>
                                         <p class="signUpMsg"><a id="backToApplication" class="signUpLink" href="${pageRedirectUri}">${msg("backToApplication")}</a></p>
 <script type="text/javascript">
                  window.onload = function() {

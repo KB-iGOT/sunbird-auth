@@ -90,14 +90,36 @@ public class UserAdapter extends AbstractUserAdapterFederatedStorage {
         user.setEnabled(enabled);
     }
 
-    // Updated method to handle null values properly
+    @Override
     public List<String> getAttribute(String name) {
+        logger.info("UserAdapter:getAttribute method called with name: " + name);
         Map<String, List<String>> attrs = getFederatedStorage().getAttributes(realm, keycloakId);
         List<String> list = attrs != null ? attrs.get(name) : null;
-        return list != null ? list : new ArrayList<>();
+        if (list != null) {
+            return list;
+        }
+        logger.info("UserAdapter:getAttribute method attribute name: " + name + " value is null, wrapping in list");
+        switch (name) {
+            case "phone":
+                return wrap(user.getPhone());
+            case "countryCode":
+                return wrap(user.getCountryCode());
+            case "org":
+                return wrap(user.getOrg());
+            case "roles":
+                return user.getRoles() != null ? user.getRoles() : new ArrayList<>();
+            case "firstName":
+                return wrap(user.getFirstName());
+            case "lastName":
+                return wrap(user.getLastName());
+            case "email":
+                return wrap(user.getEmail());
+            default:
+                return new ArrayList<>();
+        }
     }
 
-    // Add the Stream-based method that may be required in Keycloak 24.x
+    // Stream-based method required in Keycloak 24.x
     public Stream<String> getAttributeStream(String name) {
         List<String> attrs = getAttribute(name);
         return attrs != null ? attrs.stream() : Stream.empty();
@@ -107,33 +129,10 @@ public class UserAdapter extends AbstractUserAdapterFederatedStorage {
     public Map<String, List<String>> getAttributes() {
         logger.info("UserAdapter:getAttributes method started");
         Map<String, List<String>> attributes = new HashMap<>();
-
-        // Add phone attribute
-        if (user.getPhone() != null) {
-            List<String> phoneValues = new ArrayList<>();
-            phoneValues.add(user.getPhone());
-            attributes.put("phone", phoneValues);
-        }
-
-        // Add country code attribute
-        if (user.getCountryCode() != null) {
-            List<String> countrycodeValues = new ArrayList<>();
-            countrycodeValues.add(user.getCountryCode());
-            attributes.put("countryCode", countrycodeValues);
-        }
-
-        // Add org attribute
-        if (user.getOrg() != null) {
-            List<String> rootOrgValue = new ArrayList<>();
-            rootOrgValue.add(user.getOrg());
-            attributes.put("org", rootOrgValue);
-        }
-
-        // Add roles attribute
-        if (user.getRoles() != null) {
-            attributes.put("roles", user.getRoles());
-        }
-
+        attributes.put("phone", wrap(user.getPhone()));
+        attributes.put("countryCode", wrap(user.getCountryCode()));
+        attributes.put("org", wrap(user.getOrg()));
+        attributes.put("roles", user.getRoles() != null ? user.getRoles() : new ArrayList<>());
         logger.info("UserAdapter:getAttributes method ended");
         return attributes;
     }
@@ -142,5 +141,13 @@ public class UserAdapter extends AbstractUserAdapterFederatedStorage {
     public String getId() {
         logger.info("[KC24_DEBUG] getId() called, returning: " + keycloakId);
         return keycloakId;
+    }
+
+    private List<String> wrap(String value) {
+        List<String> list = new ArrayList<>();
+        if (value != null) {
+            list.add(value);
+        }
+        return list;
     }
 }

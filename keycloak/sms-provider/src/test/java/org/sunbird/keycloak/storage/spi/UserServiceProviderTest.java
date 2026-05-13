@@ -40,7 +40,9 @@ import org.sunbird.keycloak.storage.spi.UserSearchService;
 @PrepareForTest({StorageId.class, KeycloakSession.class, ComponentModel.class, UserService.class,
   UserAdapter.class, RealmModel.class, UserModel.class, UserSearchService.class, GroupModel.class,
   User.class, RoleModel.class})
-@PowerMockIgnore({"javax.management.*", "javax.net.ssl.*", "javax.security.*"})
+@PowerMockIgnore({"javax.management.*", "javax.net.ssl.*", "javax.security.*", "javax.crypto.*",
+    "com.sun.org.apache.xerces.*", "javax.xml.*", "org.xml.*", "org.w3c.dom.*",
+    "com.sun.org.apache.xalan.*", "javax.activation.*", "javax.net.*"})
 public class UserServiceProviderTest {
 
   private static KeycloakSession session = null;
