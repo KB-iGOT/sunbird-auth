@@ -90,7 +90,6 @@ public class UserAdapter extends AbstractUserAdapterFederatedStorage {
         user.setEnabled(enabled);
     }
 
-    @Override
     public List<String> getAttribute(String name) {
         logger.info("UserAdapter:getAttribute method called with name: " + name);
         Map<String, List<String>> attrs = getFederatedStorage().getAttributes(realm, keycloakId);
@@ -120,6 +119,7 @@ public class UserAdapter extends AbstractUserAdapterFederatedStorage {
     }
 
     // Stream-based method required in Keycloak 24.x
+    @Override
     public Stream<String> getAttributeStream(String name) {
         List<String> attrs = getAttribute(name);
         return attrs != null ? attrs.stream() : Stream.empty();

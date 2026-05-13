@@ -488,10 +488,17 @@ public class RequiredActionLinkProviderTest {
     // Mock successful token creation
     PowerMockito.mockStatic(LoginActionsService.class);
     UriBuilder uriBuilder = PowerMockito.mock(UriBuilder.class);
-    PowerMockito.when(LoginActionsService.actionTokenProcessor(uriInfo)).thenReturn(uriBuilder);
+    PowerMockito.when(LoginActionsService.actionTokenProcessor(Mockito.any())).thenReturn(uriBuilder);
     PowerMockito.when(uriBuilder.queryParam(Mockito.anyString(), Mockito.anyString())).thenReturn(uriBuilder);
     PowerMockito.when(uriBuilder.build("test-realm")).thenReturn(java.net.URI.create("http://test.com/link"));
     PowerMockito.when(model.getName()).thenReturn("test-realm");
+
+    ExecuteActionsActionToken mockToken = PowerMockito.mock(ExecuteActionsActionToken.class);
+    PowerMockito.whenNew(ExecuteActionsActionToken.class)
+        .withAnyArguments()
+        .thenReturn(mockToken);
+    PowerMockito.when(mockToken.serialize(Mockito.any(), Mockito.any(), Mockito.any()))
+        .thenReturn("mock-serialized-token");
   }
 
   public static class MockRuntimeDelegate extends RuntimeDelegate {
@@ -530,6 +537,7 @@ public class RequiredActionLinkProviderTest {
         Response response = Mockito.mock(Response.class);
         Mockito.when(response.getStatus()).thenReturn(statusHolder[0]);
         Mockito.when(response.getEntity()).thenReturn(entityHolder[0]);
+        Mockito.when(response.getStatusInfo()).thenAnswer(i -> Response.Status.fromStatusCode(statusHolder[0]));
         return response;
       });
       return builder;

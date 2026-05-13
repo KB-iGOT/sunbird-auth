@@ -8,6 +8,7 @@ import java.util.Map;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.Status;
@@ -112,7 +113,7 @@ public class RequiredActionLinkProvider implements RealmResourceProvider {
         logger.debug("RestResourceProvider: getEnabledUserByUsernameOrError called");
         if (StringUtils.isBlank(userName)) {
             throw ErrorResponse.error(MessageFormat.format(Constants.ERROR_MANDATORY_PARAM_MISSING,
-                    userName, Constants.USERNAME), Status.BAD_REQUEST);
+                    Constants.USERNAME), Status.BAD_REQUEST);
         }
         UserModel user = KeycloakModelUtils.findUserByNameOrEmail(session,
                 getRealm(), userName);
