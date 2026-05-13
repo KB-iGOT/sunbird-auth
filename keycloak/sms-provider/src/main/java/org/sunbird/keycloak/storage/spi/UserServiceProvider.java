@@ -43,6 +43,7 @@ public class UserServiceProvider
 
     @Override
     public void close() {
+    }
 
     @Override
     public UserModel getUserById(RealmModel realm, String id) {
