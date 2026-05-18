@@ -15,7 +15,7 @@ import org.sunbird.sms.SmsConfigurationConstants;
 import org.sunbird.sms.provider.ISmsProvider;
 import org.sunbird.utils.JsonUtil;
 
-import javax.ws.rs.HttpMethod;
+import jakarta.ws.rs.HttpMethod;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.util.ArrayList;

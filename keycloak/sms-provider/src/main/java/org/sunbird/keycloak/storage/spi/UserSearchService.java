@@ -7,8 +7,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.ws.rs.core.HttpHeaders;
-import javax.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.HttpHeaders;
+import jakarta.ws.rs.core.MediaType;
 
 import org.apache.commons.lang3.StringUtils;
 import org.jboss.logging.Logger;
@@ -22,20 +22,24 @@ public class UserSearchService {
 
   private static Logger logger = Logger.getLogger(UserSearchService.class);
 
-  private UserSearchService() {}
+  private UserSearchService() {
+  }
 
-  @SuppressWarnings({"unchecked"})
+  @SuppressWarnings({ "unchecked" })
   public static List<User> getUserByKey(String key, String value) {
     Map<String, Object> userRequest = new HashMap<>();
     Map<String, Object> request = new HashMap<>();
-    request.put("key",key.toLowerCase());
+    request.put("key", key.toLowerCase());
     request.put("value", value);
-    request.put("fields", Arrays.asList("email","firstName","lastName","id","phone","userName","countryCode","status","rootorgid","roles"));
+    request.put("fields", Arrays.asList("email", "firstName", "lastName", "id", "phone", "userName", "countryCode",
+        "status", "rootorgid", "roles"));
     userRequest.put("request", request);
-    String userLookupUrl = System.getenv("sunbird_user_service_base_url")+"/private/user/v1/lookup";
-    Map<String, Object> resMap =
-      post(userRequest, userLookupUrl, System.getenv(Constants.SUNBIRD_LMS_AUTHORIZATION));
-    logger.info("UserSearchService:getUserByKey responseMap "+resMap);
+    logger.info("UserSearchService:getUserByKey sunbird_user_service_base_url "
+        + System.getenv("sunbird_user_service_base_url"));
+    String userLookupUrl = System.getenv("sunbird_user_service_base_url").isEmpty() ? "http://10.175.2.100/learner24"
+        : System.getenv("sunbird_user_service_base_url") + "/private/user/v1/lookup";
+    Map<String, Object> resMap = post(userRequest, userLookupUrl, System.getenv(Constants.SUNBIRD_LMS_AUTHORIZATION));
+    logger.info("UserSearchService:getUserByKey responseMap " + resMap);
     Map<String, Object> result = null;
     List<Map<String, Object>> content = null;
     if (null != resMap) {
@@ -44,6 +48,7 @@ public class UserSearchService {
     if (null != result) {
       content = (List<Map<String, Object>>) result.get("response");
     }
+    logger.info("UserSearchService:getUserByKey keycloak_24 check: " + content);
     if (null != content) {
       List<User> userList = new ArrayList<>();
       if (!content.isEmpty()) {
@@ -53,6 +58,7 @@ public class UserSearchService {
           }
         });
       }
+      logger.info("UserSearchService:getUserByKey keycloak_24 check userList: " + userList);
       return userList;
     }
     return Collections.emptyList();
@@ -68,15 +74,14 @@ public class UserSearchService {
     user.setUsername((String) userMap.get("userName"));
     user.setCountryCode((String) userMap.get("countryCode"));
     user.setOrg((String) userMap.get("rootOrgId"));
-    if ( null != userMap.get("roles") && ((List)userMap.get("roles")).size() > 0) {
+    if (null != userMap.get("roles") && ((List) userMap.get("roles")).size() > 0) {
       user.setRoles((List<String>) userMap.get("roles"));
-    }
-    else{
+    } else {
       List roles = new ArrayList();
       roles.add("");
       user.setRoles(roles);
     }
-    if ( null != userMap.get("status") && ((Integer)userMap.get("status")) == 0) {
+    if (null != userMap.get("status") && ((Integer) userMap.get("status")) == 0) {
       user.setEnabled(false);
     } else {
       user.setEnabled(true);
@@ -85,9 +90,9 @@ public class UserSearchService {
   }
 
   public static Map<String, Object> post(Map<String, Object> requestBody, String uri,
-                                         String authorizationKey) {
+      String authorizationKey) {
     try {
-      logger.info("UserSearchService:post: uri = " + uri+ ", body = "+requestBody);
+      logger.info("UserSearchService:post: uri = " + uri + ", body = " + requestBody);
       ObjectMapper mapper = new ObjectMapper();
       HttpClientUtil.getInstance();
       String authKey = Constants.BEARER + " " + authorizationKey;
@@ -99,8 +104,9 @@ public class UserSearchService {
       }
       String response = HttpClientUtil.post(uri, mapper.writeValueAsString(requestBody), headers);
       return mapper.readValue(response,
-        new TypeReference<Map<String, Object>>() {});
-    }catch (Exception ex) {
+          new TypeReference<Map<String, Object>>() {
+          });
+    } catch (Exception ex) {
       logger.error("UserSearchService:post: Exception occurred = " + ex);
     }
     return null;
