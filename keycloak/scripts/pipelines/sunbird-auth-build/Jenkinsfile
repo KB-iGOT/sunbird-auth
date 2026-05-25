@@ -36,6 +36,7 @@ node('build-slave') {
                         tar -xvf keycloak-24.0.4.tar.gz --strip 1 -C sunbird_auth_24.0v
 
                         mkdir -p sunbird_auth_24.0v/providers
+                        mkdir -p sunbird_auth_24.0v/logs
                         mkdir -p sunbird_auth_24.0v/themes/sunbird/login
 
                         cd keycloak/sms-provider
