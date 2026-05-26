@@ -1,7 +1,8 @@
 <#import "template.ftl" as layout>
 <@layout.registrationLayout displayMessage=false; section>
     <#if section = "title">
-    ${message.summary}
+     <#-- ${message.summary} -->
+    <#import "error.ftl" as layout>
     <#elseif section = "form">
     <div class="custom-wrapper">
         <div class="custom-grid">
@@ -48,7 +49,7 @@
                                 <#if skipLink??>
                                 <#else>
                                     <#if pageRedirectUri??>
-                                        <p class="signUpMsg">Your password has been updated successfully. You will need to sign in to start using it. You will be redirected to the home page automatically</p>
+                                        <p class="signUpMsg">You have activated your account successfully. You will need to sign in to start using it. You will be redirected to the home page automatically</p>
                                         <p class="signUpMsg"><a id="backToApplication" class="signUpLink" href="${pageRedirectUri}">${msg("backToApplication")}</a></p>
 <script type="text/javascript">
                  window.onload = function() {
@@ -60,7 +61,8 @@
                                             </script>
 
                                     <#elseif actionUri??>
-                                        <div class="ui text active centered inline large loader">Loading.. Please wa<p><a id="click-here-to-proceed" href="${actionUri}">${kcSanitize(msg("proceedWithAction"))?no_esc}</a></p>it..</div>
+                                        <div class="ui text active centered inline large loader">Loading.. Please wait..</div>
+                                        <p><a id="click-here-to-proceed" href="${actionUri}">${kcSanitize(msg("proceedWithAction"))?no_esc}</a></p>
                                         <div id="kc-info-message-hide" style="display:none">
                                             <p><a id="click-here-to-proceed" href="${actionUri}">${kcSanitize(msg("proceedWithAction"))?no_esc}</a></p>
                                             <script type="text/javascript">

@@ -1,8 +1,8 @@
-function getQueryStringValue (key) {
-  return decodeURIComponent(window.location.search.replace(new RegExp("^(?:.*[&\\?]" + encodeURIComponent(key).replace(/[\.\+\*]/g, "\\$&") + "(?:\\=([^&]*))?)?.*$", "i"), "$1"));
+function getQueryStringValue(key) {
+	return decodeURIComponent(window.location.search.replace(new RegExp("^(?:.*[&\\?]" + encodeURIComponent(key).replace(/[\.\+\*]/g, "\\$&") + "(?:\\=([^&]*))?)?.*$", "i"), "$1"));
 }
 
-window.onload = function(){
+window.onload = function () {
 	var mergeaccountprocess = (new URLSearchParams(window.location.search)).get('mergeaccountprocess');
 	var version = getValueFromSession('version');
 	var isForgetPasswordAllow = getValueFromSession('version');
@@ -28,32 +28,32 @@ window.onload = function(){
 	var error_message = (new URLSearchParams(window.location.search)).get('error_message');
 	var success_message = (new URLSearchParams(window.location.search)).get('success_message');
 
-	if(error_message){
+	if (error_message) {
 		var error_msg = document.getElementById('error-msg');
-		error_msg.className = error_msg.className.replace("hide","");
+		error_msg.className = error_msg.className.replace("hide", "");
 		error_msg.innerHTML = error_message;
-	}else if(success_message){
+	} else if (success_message) {
 		var success_msg = document.getElementById("success-msg");
-		success_msg.className = success_msg.className.replace("hide","");
+		success_msg.className = success_msg.className.replace("hide", "");
 		success_msg.innerHTML = success_message;
 	}
 	if (version >= 4) {
 		var forgotElement = document.getElementById("fgtPortalFlow");
-		if(forgotElement){
-			forgotElement.className = forgotElement.className.replace("hide","");
+		if (forgotElement) {
+			forgotElement.className = forgotElement.className.replace("hide", "");
 		}
 	} else {
 		var forgotElement = document.getElementById("fgtKeycloakFlow");
-		if(forgotElement){
-			forgotElement.className = forgotElement.className.replace("hide","");
-			forgotElement.href = forgotElement.href + '&version=' + version ;
+		if (forgotElement) {
+			forgotElement.className = forgotElement.className.replace("hide", "");
+			forgotElement.href = forgotElement.href + '&version=' + version;
 		}
 	}
-	if(!version && isForgetPasswordAllow >=4 ){
+	if (!version && isForgetPasswordAllow >= 4) {
 		hideElement("fgtKeycloakFlow");
 		var forgotElement = document.getElementById("fgtPortalFlow");
-		if(forgotElement){
-			forgotElement.className = forgotElement.className.replace("hide","");
+		if (forgotElement) {
+			forgotElement.className = forgotElement.className.replace("hide", "");
 		}
 	}
 	if (mergeaccountprocess === '1') {
@@ -198,15 +198,15 @@ var setElementValue = function (elementId, elementValue) {
 	}
 };
 
-var storeLocation = function(){
+var storeLocation = function () {
 	sessionStorage.setItem('url', window.location.href);
 }
-var addVersionToURL = function (version){
+var addVersionToURL = function (version) {
 
-	if (version >= 1){
+	if (version >= 1) {
 		var selfSingUp = document.getElementById("selfSingUp");
 
-		if(selfSingUp) {
+		if (selfSingUp) {
 			selfSingUp.className = selfSingUp.className.replace(/\bhide\b/g, "");
 		}
 
@@ -217,23 +217,37 @@ var addVersionToURL = function (version){
 		}
 	}
 }
-var makeDivUnclickable = function() {
+var makeDivUnclickable = function () {
 	var containerElement = document.getElementById('kc-form');
 	var overlayEle = document.getElementById('kc-form-wrapper');
 	overlayEle.style.display = 'block';
 	containerElement.setAttribute('class', 'unClickable');
 };
 
-var inputBoxFocusIn = function(currentElement){
+var formSubmitted = false;
+var disableBtn = function () {
+	console.log("function called")
+	if( formSubmitted == true ) {
+		document.getElementById('login').disabled = true;
+	setTimeout(function () {
+		document.getElementById("login").disabled = false;
+	}, 3000);
+     return false;
+  	}
+  formSubmitted = true;
+  return true;
+}
+
+var inputBoxFocusIn = function (currentElement) {
 	var autoMerge = getValueFromSession('automerge');
 	if (autoMerge === '1') {
 		return;
 	}
-	if(currentElement.id !== 'totp'){
-		var placeholderElement = document.querySelector("label[id='"+currentElement.id+"LabelPlaceholder']");
-		var labelElement = document.querySelector("label[id='"+currentElement.id+"Label']");
+	if (currentElement.id !== 'totp') {
+		var placeholderElement = document.querySelector("label[id='" + currentElement.id + "LabelPlaceholder']");
+		var labelElement = document.querySelector("label[id='" + currentElement.id + "Label']");
 		placeholderElement.className = placeholderElement.className.replace("hide", "");
-		addClass(labelElement,"hide");
+		addClass(labelElement, "hide");
 	}
 };
 var inputBoxFocusOut = function (currentElement) {
@@ -241,11 +255,11 @@ var inputBoxFocusOut = function (currentElement) {
 	if (autoMerge === '1') {
 		return;
 	}
-	if(currentElement.id !== 'totp'){
-		var placeholderElement = document.querySelector("label[id='"+currentElement.id+"LabelPlaceholder']");
-		var labelElement = document.querySelector("label[id='"+currentElement.id+"Label']");
+	if (currentElement.id !== 'totp') {
+		var placeholderElement = document.querySelector("label[id='" + currentElement.id + "LabelPlaceholder']");
+		var labelElement = document.querySelector("label[id='" + currentElement.id + "Label']");
 		labelElement.className = labelElement.className.replace("hide", "");
-		addClass(placeholderElement,"hide");
+		addClass(placeholderElement, "hide");
 	}
 };
 
@@ -256,12 +270,11 @@ function hideElement(elementId) {
 	}
 }
 
-function addClass(element,classname)
-{
+function addClass(element, classname) {
 	var arr;
-  	arr = element.className.split(" ");
-  	if (arr.indexOf(classname) == -1) {
-    	element.className += " " + classname;
+	arr = element.className.split(" ");
+	if (arr.indexOf(classname) == -1) {
+		element.className += " " + classname;
 	}
 }
 
@@ -269,42 +282,42 @@ var redirectToLib = () => {
 	window.location.href = window.location.protocol + '//' + window.location.host + '/page/home';
 };
 
-var viewPassword = function(previewButton){
+var viewPassword = function (previewButton) {
 	console.log('Show Password');
 
 	var newPassword = document.getElementById("password-new");
-  	if (newPassword.type === "password") {
+	if (newPassword.type === "password") {
 		newPassword.type = "text";
-		addClass(previewButton,"slash");
-  	} else {
+		addClass(previewButton, "slash");
+	} else {
 		newPassword.type = "password";
-		previewButton.className = previewButton.className.replace("slash","");
-  	}
+		previewButton.className = previewButton.className.replace("slash", "");
+	}
 }
 var urlMap = {
 	google: '/google/auth',
 	state: '/sign-in/sso/select-org',
 	self: '/signup',
-	parichay:'/apis/public/v8/parichay/auth'
+	parichay: '/apis/public/v8/parichay/auth'
 }
-var navigate = function(type) {
+var navigate = function (type) {
 	var version = getValueFromSession('version');
-	if(version == '1' || version == '2') {
-		if(type == 'google' || type == 'self'){
+	if (version == '1' || version == '2') {
+		if (type == 'google' || type == 'self') {
 			redirect(urlMap[type]);
-		} else if(type == 'state') {
+		} else if (type == 'state') {
 			handleSsoEvent()
 		}
 	} else if (version >= '3') {
-		if(type == 'google') {
+		if (type == 'google') {
 			handleGoogleAuthEvent()
-		} else if(type == 'state' || type == 'self') {
+		} else if (type == 'state' || type == 'self') {
 			redirectToPortal(urlMap[type])
 		}
 	}
 }
-var navigateToParichay= function(type){
-	if(type == 'parichay'){
+var navigateToParichay = function (type) {
+	if (type == 'parichay') {
 		redirect(urlMap[type]);
 	}
 }
@@ -327,10 +340,10 @@ var forgetPassword = (redirectUrlPath) => {
 		const updatedQuery = sessionUrlObj.search + '&error_callback=' + sessionUrlObj.href.split('?')[0];
 		if (redirect_uri) {
 			const redirect_uriLocation = new URL(redirect_uri);
-			if(client_id === 'android'){
+			if (client_id === 'android') {
 				window.location.href = sessionUrlObj.protocol + '//' + sessionUrlObj.host + redirectUrlPath + updatedQuery;
 			}
-			else{
+			else {
 				window.location.href = redirect_uriLocation.protocol + '//' + redirect_uriLocation.host +
 					redirectUrlPath + updatedQuery;
 			}
@@ -342,7 +355,7 @@ var forgetPassword = (redirectUrlPath) => {
 	}
 }
 
-var redirect  = (redirectUrlPath) => {
+var redirect = (redirectUrlPath) => {
 	console.log('redirect', redirectUrlPath)
 	const curUrlObj = window.location;
 	var redirect_uri = getValueFromSession('redirect_uri');
@@ -366,7 +379,7 @@ var redirect  = (redirectUrlPath) => {
 		redirectToLib();
 	}
 };
-var handleSsoEvent  = () => {
+var handleSsoEvent = () => {
 	const ssoPath = '/sign-in/sso/select-org';
 	const curUrlObj = window.location;
 	let redirect_uri = getValueFromSession('redirect_uri');
@@ -437,3 +450,27 @@ var redirectToPortal = (redirectUrlPath) => { // redirectUrlPath for sso and sel
 		redirectToLib();
 	}
 };
+
+function reloadPage() {
+	window.location.reload();
+}
+
+var callZohoForm = function () {
+	var modal = document.getElementById("popupBox");
+	var btn = document.getElementById("needHelpBtn");
+	var span = document.getElementsByClassName("close")[0];
+
+	btn.onclick = function () {
+		modal.style.display = "block";
+	}
+
+	span.onclick = function () {
+		modal.style.display = "none";
+	}
+
+	window.onclick = function (event) {
+		if (event.target == modal) {
+			modal.style.display = "none";
+		}
+	}
+}
