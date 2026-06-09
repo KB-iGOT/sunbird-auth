@@ -114,4 +114,7 @@ public class Constants {
 	public static final String AUTH_NOTE_LOGIN_PAGE = "auth_note_login_page";
 	public static final String AI_ASSESSMENT_LOGIN = "/aiassessmentlogin/";
 	public static final String AI_ASSESSMENT_LOGIN_PAGE="ai-assessment-login.ftl";
+	public static final String PROFESIONAL_DETAILS = "professionalDetails";
+	public static final String DESIGNATION = "designation";
+	public static final String GROUP = "group";
 }

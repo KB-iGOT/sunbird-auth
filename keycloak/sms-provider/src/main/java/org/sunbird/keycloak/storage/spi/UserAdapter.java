@@ -98,6 +98,12 @@ public class UserAdapter extends AbstractUserAdapterFederatedStorage {
             return wrap(user.getCountryCode());
         case "org":
             return wrap(user.getOrg());
+        case "orgName":
+            return wrap(user.getOrgName());
+        case "designation":
+            return wrap(user.getDesignation());
+        case "group":
+            return wrap(user.getGroup());
         case "roles":
             return user.getRoles() != null ? user.getRoles() : new ArrayList<>();
         case "firstName":
@@ -118,6 +124,9 @@ public class UserAdapter extends AbstractUserAdapterFederatedStorage {
     attributes.put("phone", wrap(user.getPhone()));
     attributes.put("countryCode", wrap(user.getCountryCode()));
     attributes.put("org", wrap(user.getOrg()));
+    attributes.put("orgName", wrap(user.getOrgName()));
+    attributes.put("designation", wrap(user.getDesignation()));
+    attributes.put("group", wrap(user.getGroup()));
     attributes.put("roles", user.getRoles() != null ? user.getRoles() : new ArrayList<>());
     logger.info("UserAdapter:getAttributes method ended " );
     return attributes;
