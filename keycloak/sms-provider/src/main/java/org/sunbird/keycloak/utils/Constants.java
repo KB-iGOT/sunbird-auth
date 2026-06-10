@@ -117,4 +117,8 @@ public class Constants {
 	public static final String PROFESIONAL_DETAILS = "professionalDetails";
 	public static final String DESIGNATION = "designation";
 	public static final String GROUP = "group";
+	public static final String ORGNAME = "orgName";
+	public static final String ROLES = "roles";
+	public static final String ORG = "org";
+	public static final String COUNTRY_CODE = "countryCode";
 }

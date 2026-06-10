@@ -22,6 +22,8 @@ public class UserSearchService {
 
   private static Logger logger = Logger.getLogger(UserSearchService.class);
 
+  private static ObjectMapper mapper = new ObjectMapper();
+
   private UserSearchService() {}
 
   @SuppressWarnings({"unchecked"})
@@ -86,7 +88,7 @@ public class UserSearchService {
     return user;
   }
 
-  @SuppressWarnings({"unchecked"})
+  @SuppressWarnings("unchecked")
   private static void extractProfessionalDetails(Object profileDetailsObj, User user) {
     if (profileDetailsObj == null) {
       return;
@@ -94,31 +96,60 @@ public class UserSearchService {
 
     try {
       Map<String, Object> profileDetailsMap;
-      ObjectMapper mapper = new ObjectMapper();
+
       if (profileDetailsObj instanceof String) {
-        profileDetailsMap = mapper.readValue((String) profileDetailsObj,
-          new TypeReference<Map<String, Object>>() {});
+        if (StringUtils.isBlank((String) profileDetailsObj)) {
+          return;
+        }
+
+        profileDetailsMap = mapper.readValue(
+                (String) profileDetailsObj,
+                new TypeReference<Map<String, Object>>() {}
+        );
+
       } else if (profileDetailsObj instanceof Map) {
         profileDetailsMap = (Map<String, Object>) profileDetailsObj;
+
+        if (profileDetailsMap.isEmpty()) {
+          return;
+        }
       } else {
         return;
       }
 
-      Object professionalDetailsObj = profileDetailsMap.get(Constants.PROFESIONAL_DETAILS);
+      Object professionalDetailsObj =
+              profileDetailsMap.get(Constants.PROFESIONAL_DETAILS);
+
       if (!(professionalDetailsObj instanceof List)) {
         return;
       }
 
-      List<Map<String, Object>> professionalDetails = (List<Map<String, Object>>) professionalDetailsObj;
-      if (professionalDetails.isEmpty() || professionalDetails.get(0) == null) {
+      List<Map<String, Object>> professionalDetails =
+              (List<Map<String, Object>>) professionalDetailsObj;
+
+      if (professionalDetails.isEmpty()) {
         return;
       }
 
-      Map<String, Object> firstProfessionalDetail = professionalDetails.get(0);
-      user.setDesignation((String) firstProfessionalDetail.get(Constants.DESIGNATION));
-      user.setGroup((String) firstProfessionalDetail.get(Constants.GROUP));
+      Map<String, Object> firstProfessionalDetail =
+              professionalDetails.get(0);
+
+      if (firstProfessionalDetail == null
+              || firstProfessionalDetail.isEmpty()) {
+        return;
+      }
+
+      user.setDesignation(
+              (String) firstProfessionalDetail.get(Constants.DESIGNATION));
+
+      user.setGroup(
+              (String) firstProfessionalDetail.get(Constants.GROUP));
+
     } catch (Exception ex) {
-      logger.warn("UserSearchService:extractProfessionalDetails: failed to parse profileDetails", ex);
+      logger.warn(
+              "UserSearchService:extractProfessionalDetails: failed to parse profileDetails",
+              ex
+      );
     }
   }
 
@@ -126,7 +157,6 @@ public class UserSearchService {
                                          String authorizationKey) {
     try {
       logger.info("UserSearchService:post: uri = " + uri+ ", body = "+requestBody);
-      ObjectMapper mapper = new ObjectMapper();
       HttpClientUtil.getInstance();
       String authKey = Constants.BEARER + " " + authorizationKey;
       Map<String, String> headers = new HashMap<>();

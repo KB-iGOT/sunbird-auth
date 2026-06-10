@@ -11,6 +11,7 @@ import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.storage.StorageId;
 import org.keycloak.storage.adapter.AbstractUserAdapterFederatedStorage;
+import org.sunbird.keycloak.utils.Constants;
 
 public class UserAdapter extends AbstractUserAdapterFederatedStorage {
 	private static final Logger logger = Logger.getLogger(UserAdapter.class);
@@ -92,25 +93,25 @@ public class UserAdapter extends AbstractUserAdapterFederatedStorage {
     }
     logger.info("UserAdapter:getAttribute method attribute name: " + name + " value is null, wrapping in list");
     switch (name) {
-        case "phone":
+        case Constants.PHONE:
             return wrap(user.getPhone());
-        case "countryCode":
+        case Constants.COUNTRY_CODE:
             return wrap(user.getCountryCode());
-        case "org":
+        case Constants.ORG:
             return wrap(user.getOrg());
-        case "orgName":
+        case Constants.ORGNAME:
             return wrap(user.getOrgName());
-        case "designation":
+        case Constants.DESIGNATION:
             return wrap(user.getDesignation());
-        case "group":
+        case Constants.GROUP:
             return wrap(user.getGroup());
-        case "roles":
+        case Constants.ROLES:
             return user.getRoles() != null ? user.getRoles() : new ArrayList<>();
-        case "firstName":
+        case Constants.FIRST_NAME:
             return wrap(user.getFirstName());
-        case "lastName":
+        case Constants.LAST_NAME:
             return wrap(user.getLastName());
-        case "email":
+        case Constants.EMAIL:
             return wrap(user.getEmail());
         default:
             return new ArrayList<>();
@@ -121,13 +122,13 @@ public class UserAdapter extends AbstractUserAdapterFederatedStorage {
   public Map<String, List<String>> getAttributes() {
 	logger.info("UserAdapter:getAttributes method started " );  
     Map<String, List<String>> attributes = new HashMap<>();
-    attributes.put("phone", wrap(user.getPhone()));
-    attributes.put("countryCode", wrap(user.getCountryCode()));
-    attributes.put("org", wrap(user.getOrg()));
-    attributes.put("orgName", wrap(user.getOrgName()));
-    attributes.put("designation", wrap(user.getDesignation()));
-    attributes.put("group", wrap(user.getGroup()));
-    attributes.put("roles", user.getRoles() != null ? user.getRoles() : new ArrayList<>());
+    attributes.put(Constants.PHONE, wrap(user.getPhone()));
+    attributes.put(Constants.COUNTRY_CODE, wrap(user.getCountryCode()));
+    attributes.put(Constants.ORG, wrap(user.getOrg()));
+    attributes.put(Constants.ORGNAME, wrap(user.getOrgName()));
+    attributes.put(Constants.DESIGNATION, wrap(user.getDesignation()));
+    attributes.put(Constants.GROUP, wrap(user.getGroup()));
+    attributes.put(Constants.ROLES, user.getRoles() != null ? user.getRoles() : new ArrayList<>());
     logger.info("UserAdapter:getAttributes method ended " );
     return attributes;
   }
