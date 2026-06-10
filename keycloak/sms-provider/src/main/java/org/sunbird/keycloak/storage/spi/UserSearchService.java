@@ -67,6 +67,7 @@ public class UserSearchService {
     user.setPhone((String) userMap.get(Constants.PHONE));
     user.setUsername((String) userMap.get("userName"));
     user.setCountryCode((String) userMap.get("countryCode"));
+    user.setOrg((String) userMap.get("rootOrgId"));
     user.setOrgName((String) userMap.get("channel"));
     extractProfessionalDetails(userMap.get("profileDetails"), user);
     if ( null != userMap.get("roles") && ((List)userMap.get("roles")).size() > 0) {
