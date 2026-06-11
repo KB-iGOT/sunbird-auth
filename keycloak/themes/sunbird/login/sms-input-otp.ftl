@@ -17,18 +17,24 @@
                         </div>
                         <div class="ui content textCenter mt-8 mb-28">
                             <#if message?has_content>
-                            <div class="ui text ${message.type}">
+                            <div class="ui text ${message.type}" id="errorMsgMainBox">
                                 ${message.summary}
                             </div>
+                            <span id="attempCount" class="ui text error"></span>
                             </#if>
                         </div>
                         <form id="kc-totp-login-form" class="${properties.kcFormClass!} ui form pre-signin" action="${url.loginAction}" method="post">
 			                <input type="hidden" name="page_type" value="sms_otp_page" />
                             <div class="field">
-                                <input id="totp" name="smsCode" type="text" class=" smsinput" onfocusin="inputBoxFocusIn(this)" onfocusout="inputBoxFocusOut(this)"/>
+                                <input id="totp" maxLength="6" name="smsCode" type="text" class=" smsinput" onkeyup="validateOtpChar()" onfocusin="inputBoxFocusIn(this)" onfocusout="inputBoxFocusOut(this)"/>
+                                <span id="otpLengthErr" class="ui text error"></span>
+                                <div id="main-timeout-box" class="main-timeout-inner-box">
+                                  <span id="js-timeout-box" class="ui text error"></span>
+                                </div>
                             </div>
+                            
                             <div class="field">
-                                <button onclick="javascript:makeDivUnclickable()" class="ui fluid submit button" name="login" id="login" type="submit" value="${msg("doLogIn")}">${msg("doSubmit")}</button>
+                                <button onclick="javascript:makeDivUnclickable(); javascript:disableBtn(); javascript:otpLoginUser()" class="ui fluid submit button" name="login" id="login" type="submit" value="${msg("doLogIn")}">${msg("doSubmit")}</button> 
                             </div>
                             <div class="field or-container">
                                 <div class="or-holder">
@@ -65,7 +71,7 @@
             </div>
         </div>
     </div>
-    </#if>
+
     <script>
         var interval
         function countdown() {
@@ -95,6 +101,136 @@
       }
 
       countdown()
+
+      function validateOtpChar() {
+        let userOptVal = document.getElementById("totp").value.trim()
+        if (userOptVal && userOptVal.length !== 6) {
+            document.getElementById("otpLengthErr").innerHTML = "OTP should have 6 digits"
+        } else if (userOptVal && userOptVal.length === 6) {
+            document.getElementById("otpLengthErr").innerHTML = ""
+        }
+      }
+
+
+function convertStoMs(seconds) {
+         let minutes = Math.floor(seconds / 60);
+         let extraSeconds = seconds % 60;
+         minutes = minutes < 10 ? "0" + minutes : minutes;
+         extraSeconds = extraSeconds< 10 ? "0" + extraSeconds : extraSeconds;
+         return minutes + " : " + extraSeconds;
+      } 
+
+
+function timerCount() {
+  var timeInterval = setInterval(function () {
+    if (sessionStorage.getItem("timeLeftForUnblock")) {
+      timeLeftForUnblock = sessionStorage.getItem("timeLeftForUnblock");
+
+    } else {
+      sessionStorage.setItem("timeLeftForUnblock", timeLeftForUnblock);
+    }
+    timeLeftForUnblock = timeLeftForUnblock - 1;
+    sessionStorage.setItem("timeLeftForUnblock", timeLeftForUnblock);
+    timeLeftForUnblock = parseInt(sessionStorage.getItem("timeLeftForUnblock"), 10);
+    document.getElementById("js-timeout-box").innerHTML = "You will be unblocked after " + convertStoMs(parseInt(timeLeftForUnblock), 10) + " minutes"; 
+    if (timeLeftForUnblock == 0) {
+      document.getElementById("js-timeout-box").innerHTML = "";
+      clearInterval(timeInterval);
+      sessionStorage.removeItem("loginAttempts");
+      sessionStorage.removeItem("timeLeftForUnblock");
+      enableFields();
+      loginAttempts = 0;
+      timeLeftForUnblock = 1800;
+      
+    }
+  }, 1000);
+}
+
+
+
+  var timeLeftForUnblock = 1800;
+  var loginAttempts = Number(0); 
+  var totalLoginAttempts = Number(7);
+  
+
+  function otpLoginUser() {
+    var loginCount = parseInt(sessionStorage.getItem("loginAttempts"), 10);
+    if (!loginCount || loginCount === null || loginCount < totalLoginAttempts) {
+      loginAttempts += 1;
+      sessionStorage.setItem("loginAttempts", loginAttempts);
+      loginCount = parseInt(sessionStorage.getItem("loginAttempts"), 10);
+     
+      var pendingLoginAttempt = totalLoginAttempts - loginCount;
+      if(pendingLoginAttempt != null && pendingLoginAttempt > 0) {
+        document.getElementById("attempCount").innerHTML = "You have " + pendingLoginAttempt + " more attempts";
+      }
+      
+      enableFields();
+      document.getElementById("timer-container").setAttribute("hidden", false);
+    }
+
+    if (loginCount && loginCount == totalLoginAttempts && timeLeftForUnblock != 0) {
+      disableFields();
+      timerCount();
+      document.getElementById("timer-container").setAttribute("hidden", true); 
+      document.getElementById("errorMsgMainBox").setAttribute("hidden", true); 
+    }
+     if (loginCount && loginCount == totalLoginAttempts && timeLeftForUnblock == 0) {
+       enableFields();
+      sessionStorage.removeItem("loginAttempts");
+      document.getElementById("attempCount").innerHTML = "";
+      sessionStorage.removeItem("timeLeftForUnblock");
+      clearInterval(timeInterval);
+      document.getElementById("timer-container").setAttribute("hidden", false); 
+     }
+  }
+
+
+
+ 
+  function disableFields() {
+   document.getElementById("main-timeout-box").style.display = "block";
+  }
+
+  function enableFields() {
+    document.getElementById("main-timeout-box").style.display = "none";
+    reloadPage();
+  }
+
+
+  function onStart() {
+    if (parseInt(sessionStorage.getItem("loginAttempts"), 10)) {
+      loginAttempts = parseInt(sessionStorage.getItem("loginAttempts"), 10)
+      var LoginAttemptPending = totalLoginAttempts - loginAttempts;
+       if(LoginAttemptPending != null && LoginAttemptPending > 0) {
+        document.getElementById("attempCount").innerHTML = "You have " + LoginAttemptPending + " more attempts";
+      }
+      
+      
+    }
+    if (parseInt(sessionStorage.getItem("timeLeftForUnblock"), 10)) {
+      timeLeftForUnblock = parseInt(sessionStorage.getItem("timeLeftForUnblock"), 10);
+    }
+    if ((loginAttempts == totalLoginAttempts) && timeLeftForUnblock != 0) {
+      disableFields();
+      timerCount();
+      document.getElementById("attempCount").innerHTML = "";
+      document.getElementById("timer-container").setAttribute("hidden", true); 
+     
+    
+    }
+    if ((loginAttempts == totalLoginAttempts) && timeLeftForUnblock == 0) {
+      enableFields();
+      sessionStorage.removeItem("loginAttempts");
+      document.getElementById("attempCount").innerHTML = ""
+      sessionStorage.removeItem("timeLeftForUnblock");
+      clearInterval(timeInterval);
+      document.getElementById("timer-container").setAttribute("hidden", false); 
+     
+    }
+  }
+  onStart()
     </script>
+  </#if>
 </@layout.registrationLayout>
 
