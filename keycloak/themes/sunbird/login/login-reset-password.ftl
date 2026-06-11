@@ -57,7 +57,7 @@
                                     </div>
                                 </#if>
                             </div>
-                            <form id="kc-reset-password-form" class="ui form" method="POST" action="${url.loginAction}">
+                            <form id="kc-reset-password-form" class="ui form"  method="POST" action="${url.loginAction}">
                                 <div class="field mb-36">
                                     <label id="usernameLabel" for="username" class="">
                                         <#if !realm.loginWithEmailAllowed>
@@ -73,7 +73,7 @@
                                         <#else>${msg("email")}
                                         </#if>
                                     </label>
-                                    <input type="text" id="username" class="mt-8" name="username" onfocusin="inputBoxFocusIn(this)" onfocusout="inputBoxFocusOut(this)" autofocus/>
+                                    <input type="text" id="username" class="mt-8" name="username" onfocusin="inputBoxFocusIn(this)" onfocusout="inputBoxFocusOut(this)" autofocus autocomplete="off" maxLength=256 />
                                 </div>
                                 <div class="field">
                                     <button id="login" class="ui fluid submit button">
