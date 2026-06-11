@@ -15,6 +15,9 @@ public class User {
   private String countryCode;
   private String org;
   private List<String> roles;
+  private String orgName;
+  private String designation;
+  private String group;
 
   public User() {}
 
@@ -104,4 +107,27 @@ public class User {
 
   public void setRoles(List<String> roles) { this.roles = roles; }
 
+  public String getDesignation() {
+    return designation;
+  }
+
+  public void setDesignation(String designation) {
+    this.designation = designation;
+  }
+
+  public String getOrgName() {
+    return orgName;
+  }
+
+  public void setOrgName(String orgName) {
+    this.orgName = orgName;
+  }
+
+  public String getGroup() {
+    return group;
+  }
+
+  public void setGroup(String group) {
+    this.group = group;
+  }
 }

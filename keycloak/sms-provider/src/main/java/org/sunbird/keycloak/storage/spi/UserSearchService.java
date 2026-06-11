@@ -22,6 +22,8 @@ public class UserSearchService {
 
   private static Logger logger = Logger.getLogger(UserSearchService.class);
 
+  private static ObjectMapper mapper = new ObjectMapper();
+
   private UserSearchService() {}
 
   @SuppressWarnings({"unchecked"})
@@ -30,7 +32,7 @@ public class UserSearchService {
     Map<String, Object> request = new HashMap<>();
     request.put("key",key.toLowerCase());
     request.put("value", value);
-    request.put("fields", Arrays.asList("email","firstName","lastName","id","phone","userName","countryCode","status","rootorgid","roles"));
+    request.put("fields", Arrays.asList("email","firstName","lastName","id","phone","userName","countryCode","status","rootorgid","roles","channel","profileDetails"));
     userRequest.put("request", request);
     String userLookupUrl = System.getenv("sunbird_user_service_base_url")+"/private/user/v1/lookup";
     Map<String, Object> resMap =
@@ -68,6 +70,8 @@ public class UserSearchService {
     user.setUsername((String) userMap.get("userName"));
     user.setCountryCode((String) userMap.get("countryCode"));
     user.setOrg((String) userMap.get("rootOrgId"));
+    user.setOrgName((String) userMap.get("channel"));
+    extractProfessionalDetails(userMap.get("profileDetails"), user);
     if ( null != userMap.get("roles") && ((List)userMap.get("roles")).size() > 0) {
       user.setRoles((List<String>) userMap.get("roles"));
     }
@@ -84,11 +88,75 @@ public class UserSearchService {
     return user;
   }
 
+  @SuppressWarnings("unchecked")
+  private static void extractProfessionalDetails(Object profileDetailsObj, User user) {
+    if (profileDetailsObj == null) {
+      return;
+    }
+
+    try {
+      Map<String, Object> profileDetailsMap;
+
+      if (profileDetailsObj instanceof String) {
+        if (StringUtils.isBlank((String) profileDetailsObj)) {
+          return;
+        }
+
+        profileDetailsMap = mapper.readValue(
+                (String) profileDetailsObj,
+                new TypeReference<Map<String, Object>>() {}
+        );
+
+      } else if (profileDetailsObj instanceof Map) {
+        profileDetailsMap = (Map<String, Object>) profileDetailsObj;
+
+        if (profileDetailsMap.isEmpty()) {
+          return;
+        }
+      } else {
+        return;
+      }
+
+      Object professionalDetailsObj =
+              profileDetailsMap.get(Constants.PROFESIONAL_DETAILS);
+
+      if (!(professionalDetailsObj instanceof List)) {
+        return;
+      }
+
+      List<Map<String, Object>> professionalDetails =
+              (List<Map<String, Object>>) professionalDetailsObj;
+
+      if (professionalDetails.isEmpty()) {
+        return;
+      }
+
+      Map<String, Object> firstProfessionalDetail =
+              professionalDetails.get(0);
+
+      if (firstProfessionalDetail == null
+              || firstProfessionalDetail.isEmpty()) {
+        return;
+      }
+
+      user.setDesignation(
+              (String) firstProfessionalDetail.get(Constants.DESIGNATION));
+
+      user.setGroup(
+              (String) firstProfessionalDetail.get(Constants.GROUP));
+
+    } catch (Exception ex) {
+      logger.warn(
+              "UserSearchService:extractProfessionalDetails: failed to parse profileDetails",
+              ex
+      );
+    }
+  }
+
   public static Map<String, Object> post(Map<String, Object> requestBody, String uri,
                                          String authorizationKey) {
     try {
       logger.info("UserSearchService:post: uri = " + uri+ ", body = "+requestBody);
-      ObjectMapper mapper = new ObjectMapper();
       HttpClientUtil.getInstance();
       String authKey = Constants.BEARER + " " + authorizationKey;
       Map<String, String> headers = new HashMap<>();
