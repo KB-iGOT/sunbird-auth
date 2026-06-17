@@ -100,6 +100,8 @@ public class UserAdapter extends AbstractUserAdapterFederatedStorage {
         }
         logger.info("UserAdapter:getAttribute method attribute name: " + name + " value is null, wrapping in list");
         switch (name) {
+            case Constants.ID:
+                return wrap(user.getId());
             case Constants.PHONE:
                 return wrap(user.getPhone());
             case Constants.COUNTRY_CODE:
@@ -136,6 +138,7 @@ public class UserAdapter extends AbstractUserAdapterFederatedStorage {
     public Map<String, List<String>> getAttributes() {
         logger.info("UserAdapter:getAttributes method started " );
         Map<String, List<String>> attributes = new HashMap<>();
+        attributes.put(Constants.ID, wrap(user.getId()));
         attributes.put(Constants.PHONE, wrap(user.getPhone()));
         attributes.put(Constants.COUNTRY_CODE, wrap(user.getCountryCode()));
         attributes.put(Constants.ORG, wrap(user.getOrg()));
