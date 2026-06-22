@@ -97,8 +97,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 
         // Store the secret key as an authentication session note
         context.getAuthenticationSession().setAuthNote(Constants.SECRET_KEY, secretKey);
-        logger.info("[KC24_AUTH] Set secretKey in authNote under key: '" + secretKey + "'");
-        logger.info("[KC24_AUTH] Set secretKey in authNote under key: '" + context.getAuthenticationSession().getAuthNote(Constants.SECRET_KEY) + "'");
+        logger.info("[KC24_AUTH] Set secretKey in authNote. authNote key: '" + Constants.SECRET_KEY + "', value length: " + secretKey.length());
 
 		LoginFormsProvider formsProvider = context.form();
 		formsProvider.setAttribute(Constants.SECRET_KEY, secretKey);
