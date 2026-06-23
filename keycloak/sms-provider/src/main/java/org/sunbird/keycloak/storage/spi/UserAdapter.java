@@ -10,6 +10,7 @@ import org.jboss.logging.Logger;
 import org.keycloak.component.ComponentModel;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
+import org.keycloak.models.RoleModel;
 import org.keycloak.storage.StorageId;
 import org.keycloak.storage.adapter.AbstractUserAdapterFederatedStorage;
 import org.sunbird.keycloak.utils.Constants;
@@ -157,6 +158,21 @@ public class UserAdapter extends AbstractUserAdapterFederatedStorage {
     public String getId() {
         logger.info("[KC24_DEBUG] getId() called, returning: " + keycloakId);
         return keycloakId;
+    }
+
+    /**
+     * Override to include realm default roles (e.g. offline_access) for federated users.
+     * AbstractUserAdapterFederatedStorage does NOT include realm default roles by itself,
+     * unlike AbstractUserAdapter. This ensures KC24's offline token role check passes.
+     */
+    @Override
+    public Stream<RoleModel> getRoleMappingsStream() {
+        Stream<RoleModel> federatedRoles = super.getRoleMappingsStream();
+        RoleModel defaultRole = realm.getDefaultRole();
+        if (defaultRole != null) {
+            return Stream.concat(federatedRoles, Stream.of(defaultRole));
+        }
+        return federatedRoles;
     }
 
     private List<String> wrap(String value) {
