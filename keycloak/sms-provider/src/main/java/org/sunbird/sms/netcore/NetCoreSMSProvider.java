@@ -34,6 +34,7 @@ public class NetCoreSMSProvider {
     private boolean isConfigured;
 
     public static NetCoreSMSProvider getInstance() {
+        logger.info("NetCoreSMSProvider@getInstance : getting instance of NetCoreSMSProvider");
         if (netCoreSmsProvider == null) {
             synchronized (NetCoreSMSProvider.class) {
                 if (netCoreSmsProvider == null) {
@@ -46,6 +47,7 @@ public class NetCoreSMSProvider {
     }
 
     public void configure() {
+        logger.info("NetCoreSMSProvider@configure : loading configurations from file");
         String filePath = new File(KeycloakSmsAuthenticatorConstants.NETCORE_SMS_PROVIDER_CONFIGURATIONS_PATH)
                 .getAbsolutePath();
         logger.info("NetCoreSMSProvider@configure : filePath - " + filePath);
