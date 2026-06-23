@@ -700,9 +700,11 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
     }
 
     private boolean sendSmsViaNetCore(String mobileNumber, String otp, String expiryTime) {
+        logger.info("Sending SMS via NetCoreSMSProvider to mobile number: " + mobileNumber);
         mobileNumber = "91" + mobileNumber;
         boolean retValue = NetCoreSMSProvider.getInstance().send(mobileNumber, otp, expiryTime,
                 SmsConfigurationConstants.NIC_LOGIN_OTP_SMS_TYPE);
+        logger.info("SMS sent via NetCoreSMSProvider to mobile number: " + mobileNumber + ", success: " + retValue);
         return retValue;
     }
 
