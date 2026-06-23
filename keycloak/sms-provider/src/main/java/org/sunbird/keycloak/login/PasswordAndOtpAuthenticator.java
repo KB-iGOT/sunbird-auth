@@ -362,7 +362,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
         Map<String, String> attributes = generateOTP(context);
 
         // Send the key into the User Mobile Phone
-        if (sendOtpByEmailOrSms(context, emailOrMobile, attributes.get(Constants.SESSION_OTP_CODE))) {
+        if (sendOtpByEmailOrSms(context, emailOrMobile, attributes.get(Constants.SESSION_OTP_CODE), false)) {
             // SMS is sent successfully, let's save the details in session and return the
             // necessary page.
             context.getAuthenticationSession().setAuthNote(Constants.SESSION_OTP_CODE,
@@ -376,9 +376,30 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
             context.setUser(user);
             goPage(context, Constants.PAGE_INPUT_OTP, StringUtils.EMPTY, attributes);
         } else {
-            goErrorPage(context, "Failed to send out SMS. Please contact Administrator.");
+            // 1st Attempt is failed, will try the next provider
+            if (sendOtpByEmailOrSms(context, emailOrMobile, attributes.get(Constants.SESSION_OTP_CODE), true)) {
+                // SMS is sent successfully, let's save the details in session and return the
+                // necessary page.
+                context.getAuthenticationSession().setAuthNote(Constants.SESSION_OTP_CODE,
+                        attributes.get(Constants.SESSION_OTP_CODE));
+                context.getAuthenticationSession().setAuthNote(Constants.SESSION_OTP_EXPIRE_TIME,
+                        attributes.get(KeycloakSmsAuthenticatorConstants.CONF_PRP_SMS_CODE_TTL));
+                context.getAuthenticationSession().setAuthNote(Constants.ATTEMPTED_EMAIL_OR_MOBILE_NUMBER, emailOrMobile);
+                context.getAuthenticationSession().setAuthNote(Details.REDIRECT_URI, redirectUri);
+
+                logger.info("Saving user details in session with userId: " + user.getId());
+                context.setUser(user);
+                goPage(context, Constants.PAGE_INPUT_OTP, StringUtils.EMPTY, attributes);
+            } else {
+                context.getEvent().getEvent().setError("SMS_SEND_FAILED");
+                goErrorPage(context, "Failed to send out SMS. Please contact Administrator.");
+            }
         }
+        logger.info(String.format(
+                "Action:: sendOtp - completed for emailOrMobile: %s",
+                emailOrMobile));
     }
+
 
     private void resendOtp(AuthenticationFlowContext context) {
         String mobileNumber = context.getAuthenticationSession()
@@ -390,14 +411,14 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
         context.getAuthenticationSession().setAuthNote(Constants.SESSION_OTP_CODE,
                 attributes.get(Constants.SESSION_OTP_CODE));
         // Send the key into the User Mobile Phone
-        if (sendOtpByEmailOrSms(context, mobileNumber, attributes.get(Constants.SESSION_OTP_CODE))) {
+        if (sendOtpByEmailOrSms(context, mobileNumber, attributes.get(Constants.SESSION_OTP_CODE), true)) {
             goPage(context, Constants.PAGE_INPUT_OTP);
         } else {
             goErrorPage(context, "Failed to send out SMS. Please contact Administrator.");
         }
     }
 
-    private boolean sendOtpByEmailOrSms(AuthenticationFlowContext context, String mobileNumber, String otp) {
+    private boolean sendOtpByEmailOrSms(AuthenticationFlowContext context, String mobileNumber, String otp, boolean isResend) {
         boolean retValue = false;
         String userNameType = isEmailOrMobileNumber(mobileNumber);
         switch (userNameType) {
@@ -423,7 +444,11 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
                 } else if (Constants.NETCORE_SMS_PROVIDER.equalsIgnoreCase(smsProvider)) {
                     long ttl = KeycloakSmsAuthenticatorUtil.getConfigLong(context.getAuthenticatorConfig(),
                             KeycloakSmsAuthenticatorConstants.CONF_PRP_SMS_CODE_TTL, 5 * 60L);
-                    retValue = sendSmsViaNetCore(mobileNumber, otp, String.valueOf(ttl / 60));
+                    if (isResend) {
+                        retValue = sendSmsViaSinch(mobileNumber, otp, String.valueOf(ttl / 60));
+                    } else {
+                        retValue = sendSmsViaNetCore(mobileNumber, otp, String.valueOf(ttl / 60));
+                    }
                 } else {
                     logger.error(String.format(
                             "SMS Provider is not configured property. current value: %s. Execpected value: NIC / MSG91",
@@ -679,6 +704,12 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
         boolean retValue = NetCoreSMSProvider.getInstance().send(mobileNumber, otp, expiryTime,
                 SmsConfigurationConstants.NIC_LOGIN_OTP_SMS_TYPE);
         return retValue;
+    }
+
+    private boolean sendSmsViaSinch(String mobileNumber, String otp, String expiryTime) {
+    mobileNumber = "91" + mobileNumber;
+    return SinchSMSProvider.getInstance().send(mobileNumber, otp, expiryTime,
+            SmsConfigurationConstants.NIC_LOGIN_OTP_SMS_TYPE);
     }
 
     private String generateSecretKey() {

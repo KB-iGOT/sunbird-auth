@@ -27,7 +27,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.type.CollectionType;
 
 public class NetCoreSMSProvider {
-    private Logger logger = Logger.getLogger(AmnexSmsProvider.class);
+    private Logger logger = Logger.getLogger(NetCoreSMSProvider.class);
     private static NetCoreSMSProvider netCoreSmsProvider = null;
     private Map<String, Object> configurations;
     private Map<String, Map<String, String>> messageTypeMap = new HashMap<String, Map<String, String>>();
@@ -50,6 +50,8 @@ public class NetCoreSMSProvider {
                 .getAbsolutePath();
         logger.info("NetCoreSMSProvider@configure : filePath - " + filePath);
         this.configurations = JsonUtil.readObjectFromJson(filePath);
+        logger.info("NetCoreSMSProvider@configure : configurations loaded = "
+                + (configurations == null ? "null" : configurations.keySet()));
         ObjectMapper mapper = new ObjectMapper();
         List<Map<String, String>> mapList = null;
         try {
@@ -58,6 +60,8 @@ public class NetCoreSMSProvider {
             mapList = mapper.readValue(
                     mapper.writeValueAsString(configurations.get(SmsConfigurationConstants.NIC_OTP_MESSAGE_TYPES)),
                     collectionList);
+            logger.info("NetCoreSMSProvider@configure : parsed " + (mapList == null ? 0 : mapList.size())
+                    + " message-type entries");
             for (Map<String, String> map : mapList) {
                 String typeName = map.get(Constants.NAME);
                 if (!messageTypeMap.containsKey(typeName)) {
@@ -65,8 +69,10 @@ public class NetCoreSMSProvider {
                 }
             }
             isConfigured = true;
+            logger.info("NetCoreSMSProvider@configure : isConfigured=true, types=" + messageTypeMap.keySet());
         } catch (Exception e) {
-            logger.error("Failed to configure", e);
+            logger.error("NetCoreSMSProvider@configure : FAILED, isConfigured stays " + isConfigured
+                    + " ; raw NIC_OTP_MESSAGE_TYPES=" + configurations.get(SmsConfigurationConstants.NIC_OTP_MESSAGE_TYPES), e);
         }
     }
 
