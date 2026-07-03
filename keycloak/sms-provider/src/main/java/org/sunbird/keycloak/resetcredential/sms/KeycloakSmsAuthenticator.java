@@ -131,7 +131,7 @@ public class KeycloakSmsAuthenticator implements Authenticator {
 
     private void sendEmailViaSunbird(Map<String, Object> otpResponse,
                                      AuthenticationFlowContext context, String userEmail) {
-        logger.debug("KeycloakSmsAuthenticator@sendEmailViaSunbird - Sending Email via Sunbird API");
+        logger.info("KeycloakSmsAuthenticator@sendEmailViaSunbird - Sending Email via Sunbird API");
 
         List<String> emails = new ArrayList<>(Arrays.asList(userEmail));
 
@@ -147,8 +147,13 @@ public class KeycloakSmsAuthenticator implements Authenticator {
         HttpResponse response = HttpClient.post(request,
                 (System.getenv(Constants.SUNBIRD_LMS_BASE_URL) + Constants.SEND_NOTIFICATION_URI),
                 System.getenv(Constants.SUNBIRD_LMS_AUTHORIZATION));
-
+                
         int statusCode = response.getStatusLine().getStatusCode();
+        logger.info("KeycloakSmsAuthenticator@sendEmailViaSunbird - SUNBIRD_LMS_BASE_URL: " + System.getenv(Constants.SUNBIRD_LMS_BASE_URL));
+        logger.info("KeycloakSmsAuthenticator@sendEmailViaSunbird - SEND_NOTIFICATION_URI: " + System.getenv(Constants.SEND_NOTIFICATION_URI));
+        logger.info("KeycloakSmsAuthenticator@sendEmailViaSunbird - SUNBIRD_LMS_AUTHORIZATION: " + System.getenv(Constants.SUNBIRD_LMS_AUTHORIZATION));
+        logger.info("KeycloakSmsAuthenticator@sendEmailViaSunbird - statusCode: " + statusCode);
+
         if (statusCode == 200) {
             navigateToEnterOTPPage(context, true);
         } else {
