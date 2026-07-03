@@ -86,6 +86,7 @@ public class KeycloakSmsAuthenticator implements Authenticator {
                         logger.error(e);
                     }
                 }
+                logger.info("KeycloakSmsAuthenticator@authenticate - before sending email");
                 sendEmailViaSunbird(otpResponse, context, userEmail);
             }
         } else {
