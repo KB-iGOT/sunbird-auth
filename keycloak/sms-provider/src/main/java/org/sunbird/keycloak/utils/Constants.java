@@ -121,4 +121,5 @@ public class Constants {
 	public static final String ROLES = "roles";
 	public static final String ORG = "org";
 	public static final String COUNTRY_CODE = "countryCode";
+	public static final String SAML_EMAIL = "samlEmail";
 }
