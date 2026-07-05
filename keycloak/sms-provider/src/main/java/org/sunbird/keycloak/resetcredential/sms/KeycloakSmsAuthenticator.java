@@ -150,9 +150,9 @@ public class KeycloakSmsAuthenticator implements Authenticator {
                 System.getenv(Constants.SUNBIRD_LMS_AUTHORIZATION));
                 
         int statusCode = response.getStatusLine().getStatusCode();
-        logger.info("KeycloakSmsAuthenticator@sendEmailViaSunbird - SUNBIRD_LMS_BASE_URL: " + System.getenv(Constants.SUNBIRD_LMS_BASE_URL));
-        logger.info("KeycloakSmsAuthenticator@sendEmailViaSunbird - SEND_NOTIFICATION_URI: " + System.getenv(Constants.SEND_NOTIFICATION_URI));
-        logger.info("KeycloakSmsAuthenticator@sendEmailViaSunbird - SUNBIRD_LMS_AUTHORIZATION: " + System.getenv(Constants.SUNBIRD_LMS_AUTHORIZATION));
+        // logger.info("KeycloakSmsAuthenticator@sendEmailViaSunbird - SUNBIRD_LMS_BASE_URL: " + System.getenv(Constants.SUNBIRD_LMS_BASE_URL));
+        // logger.info("KeycloakSmsAuthenticator@sendEmailViaSunbird - SEND_NOTIFICATION_URI: " + System.getenv(Constants.SEND_NOTIFICATION_URI));
+        // logger.info("KeycloakSmsAuthenticator@sendEmailViaSunbird - SUNBIRD_LMS_AUTHORIZATION: " + System.getenv(Constants.SUNBIRD_LMS_AUTHORIZATION));
         logger.info("KeycloakSmsAuthenticator@sendEmailViaSunbird - statusCode: " + statusCode);
 
         if (statusCode == 200) {
