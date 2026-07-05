@@ -101,6 +101,10 @@ public class UserAdapter extends AbstractUserAdapterFederatedStorage {
         }
         logger.info("UserAdapter:getAttribute method attribute name: " + name + " value is null, wrapping in list");
         switch (name) {
+            case Constants.ID:
+                return wrap(user.getId());
+            case Constants.SAML_EMAIL:
+                return wrap(user.getId() + "@karmayogi.com");
             case Constants.PHONE:
                 return wrap(user.getPhone());
             case Constants.COUNTRY_CODE:
@@ -137,6 +141,7 @@ public class UserAdapter extends AbstractUserAdapterFederatedStorage {
     public Map<String, List<String>> getAttributes() {
         logger.info("UserAdapter:getAttributes method started " );
         Map<String, List<String>> attributes = new HashMap<>();
+        attributes.put(Constants.ID, wrap(user.getId()));
         attributes.put(Constants.PHONE, wrap(user.getPhone()));
         attributes.put(Constants.COUNTRY_CODE, wrap(user.getCountryCode()));
         attributes.put(Constants.ORG, wrap(user.getOrg()));
@@ -144,6 +149,7 @@ public class UserAdapter extends AbstractUserAdapterFederatedStorage {
         attributes.put(Constants.DESIGNATION, wrap(user.getDesignation()));
         attributes.put(Constants.GROUP, wrap(user.getGroup()));
         attributes.put(Constants.ROLES, user.getRoles() != null ? user.getRoles() : new ArrayList<>());
+        attributes.put(Constants.SAML_EMAIL, wrap(user.getId() + "@karmayogi.com"));
         logger.info("UserAdapter:getAttributes method ended " );
         return attributes;
     }
