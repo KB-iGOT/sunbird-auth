@@ -1033,10 +1033,10 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 
     private long countSessionsForCurrentClient(AuthenticationFlowContext context, UserModel user) {
         ClientModel currentClient = context.getAuthenticationSession().getClient();
+        logger.info("[KC24_AUTH] countSessionsForCurrentClient :: clientModel.Name " + currentClient.getName());
         return context.getSession().sessions()
                 .getUserSessionsStream(context.getRealm(), user)
-                .filter(session -> session.getAuthenticatedClientSessions()
-                        .containsKey(currentClient.getId()))
+                .filter(session -> session.getAuthenticatedClientSessionByClient(currentClient.getId()) != null)
                 .count();
     }
 
