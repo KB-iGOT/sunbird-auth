@@ -101,7 +101,7 @@ public class KeycloakSmsAuthenticator implements Authenticator {
     private Map<String, Object> generateOTP(AuthenticationFlowContext context) {
         // The mobile number is configured --> send an SMS
         long nrOfDigits = KeycloakSmsAuthenticatorUtil.getConfigLong(context.getAuthenticatorConfig(),
-                KeycloakSmsAuthenticatorConstants.CONF_PRP_SMS_CODE_LENGTH, 8L);
+                KeycloakSmsAuthenticatorConstants.CONF_PRP_SMS_CODE_LENGTH, 6L);
 
         logger.info("Sunbird Auth:: CONF_PRP_SMS_CODE_LENGTH:: "+KeycloakSmsAuthenticatorUtil.getConfigLong(context.getAuthenticatorConfig(),
                 KeycloakSmsAuthenticatorConstants.CONF_PRP_SMS_CODE_LENGTH));
