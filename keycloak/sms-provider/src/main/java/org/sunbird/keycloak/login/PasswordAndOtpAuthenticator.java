@@ -38,6 +38,7 @@ import org.keycloak.events.Details;
 import org.keycloak.events.Errors;
 import org.keycloak.forms.login.LoginFormsProvider;
 import org.keycloak.models.AuthenticatorConfigModel;
+import org.keycloak.models.ClientModel;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.ModelDuplicateException;
 import org.keycloak.models.RealmModel;
@@ -170,6 +171,9 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
                 if (!validateForm(context, context.getHttpRequest().getDecodedFormParameters())) {
                     logger.info("[KC24_AUTH] <<< validateForm returned FALSE - going to error page");
                     goErrorPage(context, "Invalid credentials!");
+                } else if (tooManySessions(context, context.getUser())) {
+                    logger.info("[KC24_AUTH] Session limit reached for user: " + context.getUser().getId());
+                    goErrorPage(context, "Too many sessions!");
                 } else {
                     logger.info("[KC24_AUTH] <<< validateForm returned TRUE - calling context.success()");
                     logger.info("[KC24_AUTH] redirect_uri: " + qParamMap.getFirst(Constants.REDIRECT_URI_KEY));
@@ -196,6 +200,10 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
     private void authenticateOtp(AuthenticationFlowContext context) {
         CODE_STATUS status = validateCode(context);
         if (status == CODE_STATUS.VALID) {
+            if (tooManySessions(context, context.getUser())) {
+                goErrorPage(context, Constants.PAGE_INPUT_OTP, "Too many sessions!");
+                return;
+            }
             logger.info("Validation of username + password is successful... ");
             context.getAuthenticationSession().removeAuthNote(Constants.SESSION_OTP_CODE);
             context.success();
@@ -1023,4 +1031,37 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
         return formsProvider;
     }
 
+    private long countSessionsForCurrentClient(AuthenticationFlowContext context, UserModel user) {
+        ClientModel currentClient = context.getAuthenticationSession().getClient();
+        return context.getSession().sessions()
+                .getUserSessionsStream(context.getRealm(), user)
+                .filter(session -> session.getAuthenticatedClientSessions()
+                        .containsKey(currentClient.getId()))
+                .count();
+    }
+
+    private static final int DEFAULT_MAX_USER_SESSIONS = 3;
+    private int getMaxSessionsConfig(AuthenticationFlowContext context) {
+        AuthenticatorConfigModel configModel = context.getAuthenticatorConfig();
+        if (configModel != null && configModel.getConfig() != null) {
+            String maxStr = configModel.getConfig().get(KeycloakSmsAuthenticatorConstants.CONF_PRP_MAX_USER_SESSIONS);
+            if (StringUtils.isNotBlank(maxStr)) {
+                try {
+                    return Integer.parseInt(maxStr);
+                } catch (NumberFormatException e) {
+                    logger.warn("[KC24_AUTH] Invalid maxUserSessions config: " + maxStr);
+                }
+            }
+        }
+        return DEFAULT_MAX_USER_SESSIONS;
+    }
+
+    private boolean tooManySessions(AuthenticationFlowContext context, UserModel user) {
+        int maxSessions = getMaxSessionsConfig(context);
+        long currentCount = countSessionsForCurrentClient(context, user);
+        logger.info("[KC24_AUTH] Client " + context.getAuthenticationSession().getClient().getClientId()
+                + " session count for user " + user.getId() + ": " + currentCount
+                + " (max allowed: " + maxSessions + ")");
+        return currentCount >= maxSessions;
+    }
 }

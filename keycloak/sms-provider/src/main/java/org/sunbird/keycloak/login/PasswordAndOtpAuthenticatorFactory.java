@@ -25,6 +25,14 @@ public class PasswordAndOtpAuthenticatorFactory implements AuthenticatorFactory 
 	static {
 		ProviderConfigProperty property;
 
+		// Max User Sessions
+		property = new ProviderConfigProperty();
+		property.setName(KeycloakSmsAuthenticatorConstants.CONF_PRP_MAX_USER_SESSIONS);
+		property.setLabel("Max User Sessions");
+		property.setType(ProviderConfigProperty.STRING_TYPE);
+		property.setHelpText("Maximum number of concurrent sessions allowed for a user. Set to 0 for unlimited sessions.");
+		configProperties.add(property);
+
 		// SMS Code
 		property = new ProviderConfigProperty();
 		property.setName(KeycloakSmsAuthenticatorConstants.CONF_PRP_SMS_CODE_TTL);
