@@ -177,6 +177,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
                     goErrorPage(context, "Invalid credentials!");
                 } else if (tooManySessions(context, context.getUser())) {
                     logger.info("[KC24_AUTH] Session limit reached for user: " + context.getUser().getId());
+                    context.getEvent().getEvent().setError(Errors.IDENTITY_PROVIDER_LOGIN_FAILURE);
                     context.getAuthenticationSession().removeAuthNote(Constants.SESSION_OTP_CODE);
                     goErrorPage(context, "Too many sessions!");
                 } else {
@@ -1079,8 +1080,8 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
     private boolean tooManySessions(AuthenticationFlowContext context, UserModel user) {
         int maxSessions = getMaxSessionsConfig(context);
         long currentCount = countSessionsForCurrentClient(context, user);
-        logger.info("[KC24_AUTH] Client " + context.getAuthenticationSession().getClient().getClientId()
-                + " session count for user " + user.getId() + ": " + currentCount
+        logger.info("[KC24_AUTH] Client name: '" + context.getAuthenticationSession().getClient().getClientId()
+                + "'. Number of sessions for user " + user.getId() + ": " + currentCount
                 + " (max allowed: " + maxSessions + ")");
         return currentCount >= maxSessions;
     }
