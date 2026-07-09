@@ -1,6 +1,7 @@
 package org.sunbird.keycloak.login;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.keycloak.Config.Scope;
@@ -31,6 +32,15 @@ public class PasswordAndOtpAuthenticatorFactory implements AuthenticatorFactory 
 		property.setLabel("Max User Sessions");
 		property.setType(ProviderConfigProperty.STRING_TYPE);
 		property.setHelpText("Maximum number of concurrent sessions allowed for a user. Set to 0 for unlimited sessions.");
+		property.setDefaultValue("3");
+		configProperties.add(property);
+
+		property = new ProviderConfigProperty();
+		property.setName(KeycloakSmsAuthenticatorConstants.CONF_LIMIT_BEHAVIOR);
+		property.setLabel("Behavior when limit exceeded");
+		property.setType(ProviderConfigProperty.LIST_TYPE);
+		property.setOptions(Arrays.asList("DENY", "TERMINATE_OLDEST"));
+		property.setDefaultValue("DENY");
 		configProperties.add(property);
 
 		// SMS Code

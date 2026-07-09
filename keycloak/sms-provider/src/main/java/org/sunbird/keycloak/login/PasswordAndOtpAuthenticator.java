@@ -10,6 +10,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -175,11 +176,10 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
                 if (!validateForm(context, context.getHttpRequest().getDecodedFormParameters())) {
                     logger.info("[KC24_AUTH] <<< validateForm returned FALSE - going to error page");
                     goErrorPage(context, "Invalid credentials!");
-                } else if (tooManySessions(context, context.getUser())) {
-                    logger.info("[KC24_AUTH] Session limit reached for user: " + context.getUser().getId());
-                    context.getEvent().getEvent().setError(Errors.IDENTITY_PROVIDER_LOGIN_FAILURE);
-                    context.getAuthenticationSession().removeAuthNote(Constants.SESSION_OTP_CODE);
-                    goErrorPage(context, "Too many sessions!");
+                } else if (enforceSessionLimit(context, context.getUser(), Constants.LOGIN_PAGE)) {
+                    context.getAuthenticationSession().setAuthNote(Details.REDIRECT_URI,
+                            qParamMap.getFirst(Constants.REDIRECT_URI_KEY));
+                    context.success();
                 } else {
                     logger.info("[KC24_AUTH] <<< validateForm returned TRUE - calling context.success()");
                     logger.info("[KC24_AUTH] redirect_uri: " + qParamMap.getFirst(Constants.REDIRECT_URI_KEY));
@@ -206,10 +206,9 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
     private void authenticateOtp(AuthenticationFlowContext context) {
         CODE_STATUS status = validateCode(context);
         if (status == CODE_STATUS.VALID) {
-            if (tooManySessions(context, context.getUser())) {
-                context.getEvent().getEvent().setError(Errors.IDENTITY_PROVIDER_LOGIN_FAILURE);
-                goErrorPage(context, Constants.PAGE_INPUT_OTP, "Too many sessions!");
-                return;
+            if (enforceSessionLimit(context, context.getUser(), Constants.PAGE_INPUT_OTP)) {
+                context.getAuthenticationSession().removeAuthNote(Constants.SESSION_OTP_CODE);
+                context.success();
             }
             logger.info("Validation of username + password is successful... ");
             context.getAuthenticationSession().removeAuthNote(Constants.SESSION_OTP_CODE);
@@ -1084,5 +1083,92 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
                 + "'. Number of sessions for user " + user.getId() + ": " + currentCount
                 + " (max allowed: " + maxSessions + ")");
         return currentCount >= maxSessions;
+    }
+
+    /**
+     * Enforces the max concurrent sessions per user for the client being logged into,
+     * mirroring Keycloak's built-in UserSessionLimitsAuthenticator but rendering
+     * failures on our own templates.
+     *
+     * Counts only regular (online) sessions that have an authenticated client session
+     * for the current client. The session for the login in progress does not exist yet,
+     * so the check is "existing >= max".
+     *
+     * @param context           the authentication flow context
+     * @param user              the already-authenticated user
+     * @param errorPageTemplate template to render when the login is denied
+     * @return true if the login may proceed (caller should invoke context.success()),
+     *         false if it was denied (error page already rendered)
+     */
+    private boolean enforceSessionLimit(AuthenticationFlowContext context, UserModel user, String errorPageTemplate) {
+        int maxSessions = getIntConfig(context, KeycloakSmsAuthenticatorConstants.CONF_PRP_MAX_USER_SESSIONS, 3);
+        if (maxSessions <= 0) {
+            // 0 or negative = feature disabled
+            return true;
+        }
+
+        RealmModel realm = context.getRealm();
+        KeycloakSession session = context.getSession();
+        ClientModel client = context.getAuthenticationSession().getClient();
+
+        // Oldest first, so eviction removes the longest-lived sessions.
+        List<UserSessionModel> clientSessions = session.sessions().getUserSessionsStream(realm, user)
+                .filter(s -> s.getAuthenticatedClientSessionByClient(client.getId()) != null)
+                .sorted(Comparator.comparingInt(UserSessionModel::getStarted))
+                .collect(Collectors.toList());
+
+        if (clientSessions.size() < maxSessions) {
+            logger.infof("[KC24_AUTH] Session limit OK for user %s on client %s: %d/%d",
+                    user.getId(), client.getClientId(), clientSessions.size(), maxSessions);
+            return true;
+        }
+
+        boolean terminateOldest = "TERMINATE_OLDEST".equalsIgnoreCase(
+                getStringConfig(context, KeycloakSmsAuthenticatorConstants.CONF_LIMIT_BEHAVIOR, "DENY"));
+
+        logger.infof("[KC24_AUTH] Session limit reached for user %s on client %s: %d/%d, behavior=%s, sessions=%s",
+                user.getId(), client.getClientId(), clientSessions.size(), maxSessions,
+                terminateOldest ? "TERMINATE_OLDEST" : "DENY",
+                clientSessions.stream()
+                        .map(s -> s.getId() + "@" + s.getIpAddress() + " started=" + s.getStarted())
+                        .collect(Collectors.joining(", ")));
+
+        if (!terminateOldest) {
+            goErrorPage(context, errorPageTemplate, Constants.TOO_MANY_SESSIONS);
+            return false;
+        }
+
+        // Terminate oldest sessions until the new login fits: keep (max - 1), evict the rest.
+        int excess = clientSessions.size() - (maxSessions - 1);
+        for (int i = 0; i < excess; i++) {
+            UserSessionModel oldest = clientSessions.get(i);
+            try {
+                logger.infof("[KC24_AUTH] Terminating oldest session %s (ip=%s, started=%d) for user %s",
+                        oldest.getId(), oldest.getIpAddress(), oldest.getStarted(), user.getId());
+                AuthenticationManager.backchannelLogout(session, realm, oldest,
+                        session.getContext().getUri(), context.getConnection(),
+                        context.getHttpRequest().getHttpHeaders(), true);
+            } catch (Exception e) {
+                // Never let a failed eviction break the login; remove the session directly instead.
+                logger.warnf(e, "[KC24_AUTH] backchannelLogout failed for session %s, removing directly", oldest.getId());
+                session.sessions().removeUserSession(realm, oldest);
+            }
+        }
+        return true;
+    }
+
+    private String getStringConfig(AuthenticationFlowContext context, String key, String def) {
+        AuthenticatorConfigModel cfg = context.getAuthenticatorConfig();
+        String v = (cfg != null && cfg.getConfig() != null) ? cfg.getConfig().get(key) : null;
+        return StringUtils.isNotBlank(v) ? v : def;
+    }
+
+    private int getIntConfig(AuthenticationFlowContext context, String key, int def) {
+        try {
+            return Integer.parseInt(getStringConfig(context, key, String.valueOf(def)));
+        } catch (NumberFormatException e) {
+            logger.warn("[KC24_AUTH] Invalid config for " + key);
+            return def;
+        }
     }
 }
