@@ -10,6 +10,8 @@ public class KeycloakSmsAuthenticatorConstants {
     public static final String COUNTRY_CODE = "+91";
     public static final String DEFAULT_COUNTRY_CODE = "0";
 
+    public static final String CONF_PRP_MAX_USER_SESSIONS = "max-user-sessions";
+    public static final String CONF_LIMIT_BEHAVIOR = "max-user-sessions-behaviour";
     public static final String CONF_PRP_SMS_CODE_TTL = "sms-auth.code.ttl";
     public static final String CONF_PRP_SMS_CODE_LENGTH = "sms-auth.code.length";
     public static final String CONF_PRP_SMS_TEXT = "sms-auth.msg.text";
