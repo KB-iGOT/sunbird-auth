@@ -19,7 +19,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import org.keycloak.credential.UserCredentialManager;
 
@@ -50,7 +49,6 @@ import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserCredentialModel;
 import org.keycloak.models.UserModel;
 import org.keycloak.models.UserSessionModel;
-import org.keycloak.models.UserSessionProvider;
 import org.keycloak.models.utils.KeycloakModelUtils;
 import org.keycloak.representations.idm.CredentialRepresentation;
 import org.keycloak.services.ServicesLogger;
@@ -1038,49 +1036,6 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
             context.getAuthenticationSession().getAuthNote(Constants.SECRET_KEY)
         );
         return formsProvider;
-    }
-
-    private long countSessionsForCurrentClient(AuthenticationFlowContext context, UserModel user) {
-        ClientModel currentClient = context.getAuthenticationSession().getClient();
-        logger.info("[KC24_AUTH] countSessionsForCurrentClient :: clientModel.Name " + currentClient.getName());
-        UserSessionProvider sessions = context.getSession().sessions();
-        RealmModel realm = context.getRealm();
-
-        Stream<UserSessionModel> all = Stream.concat(
-                sessions.getUserSessionsStream(realm, user),
-                sessions.getOfflineUserSessionsStream(realm, user));
-
-        return all
-            .filter(s -> s.getAuthenticatedClientSessionByClient(currentClient.getId()) != null)
-            .peek(s -> logger.infof("[KC24_AUTH] session id=%s ip=%s started=%d lastRefresh=%d offline=%s device=%s",
-                    s.getId(), s.getIpAddress(), s.getStarted(), s.getLastSessionRefresh(),
-                    s.isOffline(), s.getNote("KC_DEVICE_NOTE")))
-            .count();
-    }
-
-    private static final int DEFAULT_MAX_USER_SESSIONS = 3;
-    private int getMaxSessionsConfig(AuthenticationFlowContext context) {
-        AuthenticatorConfigModel configModel = context.getAuthenticatorConfig();
-        if (configModel != null && configModel.getConfig() != null) {
-            String maxStr = configModel.getConfig().get(KeycloakSmsAuthenticatorConstants.CONF_PRP_MAX_USER_SESSIONS);
-            if (StringUtils.isNotBlank(maxStr)) {
-                try {
-                    return Integer.parseInt(maxStr);
-                } catch (NumberFormatException e) {
-                    logger.warn("[KC24_AUTH] Invalid maxUserSessions config: " + maxStr);
-                }
-            }
-        }
-        return DEFAULT_MAX_USER_SESSIONS;
-    }
-
-    private boolean tooManySessions(AuthenticationFlowContext context, UserModel user) {
-        int maxSessions = getMaxSessionsConfig(context);
-        long currentCount = countSessionsForCurrentClient(context, user);
-        logger.info("[KC24_AUTH] Client name: '" + context.getAuthenticationSession().getClient().getClientId()
-                + "'. Number of sessions for user " + user.getId() + ": " + currentCount
-                + " (max allowed: " + maxSessions + ")");
-        return currentCount >= maxSessions;
     }
 
     /**
