@@ -122,4 +122,7 @@ public class Constants {
 	public static final String ORG = "org";
 	public static final String COUNTRY_CODE = "countryCode";
 	public static final String SAML_EMAIL = "samlEmail";
+	public static final String USER_TYPE = "userType";
+	public static final String IS_VERIFIED = "isVerified";
+	public static final String LOGIN_ID = "loginId";
 }
