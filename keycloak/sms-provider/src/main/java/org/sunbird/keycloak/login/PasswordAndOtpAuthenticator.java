@@ -177,6 +177,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
                     goErrorPage(context, "Invalid credentials!");
                 } else if (tooManySessions(context, context.getUser())) {
                     logger.info("[KC24_AUTH] Session limit reached for user: " + context.getUser().getId());
+                    context.getAuthenticationSession().removeAuthNote(Constants.SESSION_OTP_CODE);
                     goErrorPage(context, "Too many sessions!");
                 } else {
                     logger.info("[KC24_AUTH] <<< validateForm returned TRUE - calling context.success()");
@@ -205,6 +206,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
         CODE_STATUS status = validateCode(context);
         if (status == CODE_STATUS.VALID) {
             if (tooManySessions(context, context.getUser())) {
+                context.getEvent().getEvent().setError(Errors.IDENTITY_PROVIDER_LOGIN_FAILURE);
                 goErrorPage(context, Constants.PAGE_INPUT_OTP, "Too many sessions!");
                 return;
             }
@@ -272,6 +274,11 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
                 errMsg = "Authentication Error! Please enter your credentials again.";
                 Response diffUsersFoundRes = formsProvider.setError(errMsg).createForm(Constants.LOGIN_PAGE);
                 context.failureChallenge(AuthenticationFlowError.USER_CONFLICT, diffUsersFoundRes);
+                break;
+            case Errors.IDENTITY_PROVIDER_LOGIN_FAILURE:
+                errMsg = "Too many sessions!";
+                Response identityProviderLoginFailureRes = formsProvider.setError(errMsg).createForm(Constants.LOGIN_PAGE);
+                context.failureChallenge(AuthenticationFlowError.GENERIC_AUTHENTICATION_ERROR, identityProviderLoginFailureRes);
                 break;
             case Errors.EMAIL_IN_USE:
             case Errors.USERNAME_IN_USE:
