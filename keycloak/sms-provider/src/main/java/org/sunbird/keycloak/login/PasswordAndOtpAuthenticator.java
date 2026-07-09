@@ -35,11 +35,13 @@ import org.jboss.logging.Logger;
 import org.keycloak.authentication.AuthenticationFlowContext;
 import org.keycloak.authentication.AuthenticationFlowError;
 import org.keycloak.authentication.authenticators.browser.AbstractUsernameFormAuthenticator;
+import org.keycloak.constants.AdapterConstants;
 import org.keycloak.credential.CredentialInput;
 import org.keycloak.credential.CredentialModel;
 import org.keycloak.events.Details;
 import org.keycloak.events.Errors;
 import org.keycloak.forms.login.LoginFormsProvider;
+import org.keycloak.models.AuthenticatedClientSessionModel;
 import org.keycloak.models.AuthenticatorConfigModel;
 import org.keycloak.models.ClientModel;
 import org.keycloak.models.KeycloakSession;
@@ -1143,6 +1145,11 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
         for (int i = 0; i < excess; i++) {
             UserSessionModel oldest = clientSessions.get(i);
             try {
+                String uiProxySid = getUiProxySessionId(oldest, client.getId());
+                if (uiProxySid != null) {
+                    // redis.setex("revoked-sid:" + uiProxySid, sessionTtlSeconds, "1");
+                    logger.infof("[KC24_AUTH] Marked uiproxy session %s revoked for KC session %s", uiProxySid, oldest.getId());
+                }
                 logger.infof("[KC24_AUTH] Terminating oldest session %s (ip=%s, started=%d) for user %s",
                         oldest.getId(), oldest.getIpAddress(), oldest.getStarted(), user.getId());
                 AuthenticationManager.backchannelLogout(session, realm, oldest,
@@ -1170,5 +1177,12 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
             logger.warn("[KC24_AUTH] Invalid config for " + key);
             return def;
         }
+    }
+
+    private String getUiProxySessionId(UserSessionModel userSession, String clientUuid) {
+        AuthenticatedClientSessionModel clientSession =
+                userSession.getAuthenticatedClientSessionByClient(clientUuid);
+        return clientSession == null ? null
+                : clientSession.getNote(AdapterConstants.CLIENT_SESSION_STATE);
     }
 }
