@@ -179,16 +179,13 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
                     logger.info("[KC24_AUTH] <<< validateForm returned FALSE - going to error page");
                     goErrorPage(context, "Invalid credentials!");
                 } else if (enforceSessionLimit(context, context.getUser(), Constants.LOGIN_PAGE)) {
-                    context.getAuthenticationSession().setAuthNote(Details.REDIRECT_URI,
-                            qParamMap.getFirst(Constants.REDIRECT_URI_KEY));
-                    context.success();
-                } else {
                     logger.info("[KC24_AUTH] <<< validateForm returned TRUE - calling context.success()");
                     logger.info("[KC24_AUTH] redirect_uri: " + qParamMap.getFirst(Constants.REDIRECT_URI_KEY));
                     context.getAuthenticationSession().setAuthNote(Details.REDIRECT_URI,
                             qParamMap.getFirst(Constants.REDIRECT_URI_KEY));
                     context.success();
                 }
+                // else: session limit denied the login; enforceSessionLimit already rendered the error page
                 break;
             default:
                 authenticate(context);
@@ -209,12 +206,11 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
         CODE_STATUS status = validateCode(context);
         if (status == CODE_STATUS.VALID) {
             if (enforceSessionLimit(context, context.getUser(), Constants.PAGE_INPUT_OTP)) {
+                logger.info("Validation of username + password is successful... ");
                 context.getAuthenticationSession().removeAuthNote(Constants.SESSION_OTP_CODE);
                 context.success();
             }
-            logger.info("Validation of username + password is successful... ");
-            context.getAuthenticationSession().removeAuthNote(Constants.SESSION_OTP_CODE);
-            context.success();
+            // else: session limit denied the login; enforceSessionLimit already rendered the error page
         } else if (status == CODE_STATUS.EXPIRED) {
             goErrorPage(context, Constants.PAGE_INPUT_OTP, Constants.OTP_EXPIRED);
         } else {
@@ -295,7 +291,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 
     private void goErrorPage(AuthenticationFlowContext context, String page, String message) {
         logger.info("OtpSmsFormAuthenticator::goErrorPage: message: " + message + ", page: " + page);
-        Response challenge = context.form().setError(message).createForm(page);
+        Response challenge = getLoginFormsProviderWithSecretKey(context).setError(message).createForm(page);
         context.failureChallenge(AuthenticationFlowError.INVALID_CREDENTIALS, challenge);
     }
 
