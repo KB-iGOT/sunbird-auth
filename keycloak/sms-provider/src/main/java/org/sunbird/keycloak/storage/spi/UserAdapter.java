@@ -130,7 +130,7 @@ public class UserAdapter extends AbstractUserAdapterFederatedStorage {
             case Constants.IS_VERIFIED:
                 return wrap("true");
             case Constants.LOGIN_ID:
-                return wrap("");
+                return wrap("\"\"");
             default:
                 return new ArrayList<>();
         }
