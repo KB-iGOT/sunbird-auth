@@ -158,7 +158,8 @@ public class UserAdapter extends AbstractUserAdapterFederatedStorage {
         attributes.put(Constants.SAML_EMAIL, wrap(user.getId() + "@karmayogi.com"));
         attributes.put(Constants.USER_TYPE, wrap("anonymous"));
         attributes.put(Constants.IS_VERIFIED, wrap("true"));
-        attributes.put(Constants.LOGIN_ID, wrap(""));
+        attributes.put(Constants.LOGIN_ID, wrap(" "" "));
+        logger.info("User Attributes: " + attributes);
         logger.info("UserAdapter:getAttributes method ended " );
         return attributes;
     }
