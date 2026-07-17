@@ -118,6 +118,12 @@ public class UserAdapter extends AbstractUserAdapterFederatedStorage {
                 return wrap(user.getLastName());
             case Constants.EMAIL:
                 return wrap(user.getEmail());
+            case Constants.USER_TYPE:
+                return wrap("anonymous");
+            case Constants.IS_VERIFIED:
+                return wrap("true");
+            case Constants.LOGIN_ID:
+                return wrap("\"\"");
             default:
                 return new ArrayList<>();
         }
@@ -143,6 +149,10 @@ public class UserAdapter extends AbstractUserAdapterFederatedStorage {
         attributes.put(Constants.GROUP, wrap(user.getGroup()));
         attributes.put(Constants.ROLES, user.getRoles() != null ? user.getRoles() : new ArrayList<>());
         attributes.put(Constants.SAML_EMAIL, wrap(user.getId() + "@karmayogi.com"));
+        attributes.put(Constants.USER_TYPE, wrap("anonymous"));
+        attributes.put(Constants.IS_VERIFIED, wrap("true"));
+        attributes.put(Constants.LOGIN_ID, wrap("\"\""));
+        logger.info("User Attributes: " + attributes);
         logger.info("UserAdapter:getAttributes method ended " );
         return attributes;
     }

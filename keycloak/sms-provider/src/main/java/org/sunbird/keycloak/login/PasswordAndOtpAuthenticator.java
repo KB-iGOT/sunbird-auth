@@ -10,6 +10,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -17,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
+
 import org.keycloak.credential.UserCredentialManager;
 
 import javax.crypto.Cipher;
@@ -31,17 +33,21 @@ import org.jboss.logging.Logger;
 import org.keycloak.authentication.AuthenticationFlowContext;
 import org.keycloak.authentication.AuthenticationFlowError;
 import org.keycloak.authentication.authenticators.browser.AbstractUsernameFormAuthenticator;
+import org.keycloak.constants.AdapterConstants;
 import org.keycloak.credential.CredentialInput;
 import org.keycloak.credential.CredentialModel;
 import org.keycloak.events.Details;
 import org.keycloak.events.Errors;
 import org.keycloak.forms.login.LoginFormsProvider;
+import org.keycloak.models.AuthenticatedClientSessionModel;
 import org.keycloak.models.AuthenticatorConfigModel;
+import org.keycloak.models.ClientModel;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.ModelDuplicateException;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserCredentialModel;
 import org.keycloak.models.UserModel;
+import org.keycloak.models.UserSessionModel;
 import org.keycloak.models.utils.KeycloakModelUtils;
 import org.keycloak.representations.idm.CredentialRepresentation;
 import org.keycloak.services.ServicesLogger;
@@ -135,11 +141,12 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
             case Constants.FLAG_LOGIN_WITH_PASS:
                 if (!validateForm(context, context.getHttpRequest().getDecodedFormParameters())) {
                     goErrorPage(context, "Invalid credentials!");
-                } else {
+                } else if (enforceSessionLimit(context, context.getUser(), Constants.LOGIN_PAGE)) {
                     context.getAuthenticationSession().setAuthNote(Details.REDIRECT_URI,
                             qParamMap.getFirst(Constants.REDIRECT_URI_KEY));
                     context.success();
                 }
+                // else: session limit denied the login; enforceSessionLimit already rendered the error page
                 break;
             default:
                 authenticate(context);
@@ -159,9 +166,12 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
     private void authenticateOtp(AuthenticationFlowContext context) {
         CODE_STATUS status = validateCode(context);
         if (status == CODE_STATUS.VALID) {
-            logger.info("Validation of username + password is successful... ");
-            context.getAuthenticationSession().removeAuthNote(Constants.SESSION_OTP_CODE);
-            context.success();
+            if (enforceSessionLimit(context, context.getUser(), Constants.PAGE_INPUT_OTP)) {
+                logger.info("Validation of username + password is successful... ");
+                context.getAuthenticationSession().removeAuthNote(Constants.SESSION_OTP_CODE);
+                context.success();
+            }
+            // else: session limit denied the login; enforceSessionLimit already rendered the error page
         } else if (status == CODE_STATUS.EXPIRED) {
             goErrorPage(context, Constants.PAGE_INPUT_OTP, Constants.OTP_EXPIRED);
         } else {
@@ -224,6 +234,11 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
                 Response diffUsersFoundRes = formsProvider.setError(errMsg).createForm(Constants.LOGIN_PAGE);
                 context.failureChallenge(AuthenticationFlowError.USER_CONFLICT, diffUsersFoundRes);
                 break;
+            case Errors.IDENTITY_PROVIDER_LOGIN_FAILURE:
+                errMsg = "Too many sessions!";
+                Response identityProviderLoginFailureRes = formsProvider.setError(errMsg).createForm(Constants.LOGIN_PAGE);
+                context.failureChallenge(AuthenticationFlowError.GENERIC_AUTHENTICATION_ERROR, identityProviderLoginFailureRes);
+                break;
             case Errors.EMAIL_IN_USE:
             case Errors.USERNAME_IN_USE:
             default:
@@ -237,7 +252,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 
     private void goErrorPage(AuthenticationFlowContext context, String page, String message) {
         logger.info("OtpSmsFormAuthenticator::goErrorPage: message: " + message + ", page: " + page);
-        Response challenge = context.form().setError(message).createForm(page);
+        Response challenge = getLoginFormsProviderWithSecretKey(context).setError(message).createForm(page);
         context.failureChallenge(AuthenticationFlowError.INVALID_CREDENTIALS, challenge);
     }
 
@@ -890,4 +905,102 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
         return formsProvider;
     }
 
+    /**
+     * Enforces the max concurrent sessions per user for the client being logged into,
+     * mirroring Keycloak's built-in UserSessionLimitsAuthenticator but rendering
+     * failures on our own templates.
+     *
+     * Counts only regular (online) sessions that have an authenticated client session
+     * for the current client. The session for the login in progress does not exist yet,
+     * so the check is "existing >= max".
+     *
+     * @param context           the authentication flow context
+     * @param user              the already-authenticated user
+     * @param errorPageTemplate template to render when the login is denied
+     * @return true if the login may proceed (caller should invoke context.success()),
+     *         false if it was denied (error page already rendered)
+     */
+    private boolean enforceSessionLimit(AuthenticationFlowContext context, UserModel user, String errorPageTemplate) {
+        int maxSessions = getIntConfig(context, KeycloakSmsAuthenticatorConstants.CONF_PRP_MAX_USER_SESSIONS, 3);
+        if (maxSessions <= 0) {
+            // 0 or negative = feature disabled
+            return true;
+        }
+
+        RealmModel realm = context.getRealm();
+        KeycloakSession session = context.getSession();
+        ClientModel client = context.getAuthenticationSession().getClient();
+
+        // Oldest first, so eviction removes the longest-lived sessions.
+        List<UserSessionModel> clientSessions = session.sessions().getUserSessionsStream(realm, user)
+                .filter(s -> s.getAuthenticatedClientSessionByClient(client.getId()) != null)
+                .sorted(Comparator.comparingInt(UserSessionModel::getStarted))
+                .collect(Collectors.toList());
+
+        if (clientSessions.size() < maxSessions) {
+            logger.infof("[KC24_AUTH] Session limit OK for user %s on client %s: %d/%d",
+                    user.getId(), client.getClientId(), clientSessions.size(), maxSessions);
+            return true;
+        }
+
+        boolean terminateOldest = "TERMINATE_OLDEST".equalsIgnoreCase(
+                getStringConfig(context, KeycloakSmsAuthenticatorConstants.CONF_LIMIT_BEHAVIOR, "DENY"));
+
+        logger.infof("[KC24_AUTH] Session limit reached for user %s on client %s: %d/%d, behavior=%s, sessions=%s",
+                user.getId(), client.getClientId(), clientSessions.size(), maxSessions,
+                terminateOldest ? "TERMINATE_OLDEST" : "DENY",
+                clientSessions.stream()
+                        .map(s -> s.getId() + "@" + s.getIpAddress() + " started=" + s.getStarted())
+                        .collect(Collectors.joining(", ")));
+
+        if (!terminateOldest) {
+            goErrorPage(context, errorPageTemplate, Constants.TOO_MANY_SESSIONS);
+            return false;
+        }
+
+        // Terminate oldest sessions until the new login fits: keep (max - 1), evict the rest.
+        int excess = clientSessions.size() - (maxSessions - 1);
+        for (int i = 0; i < excess; i++) {
+            UserSessionModel oldest = clientSessions.get(i);
+            try {
+                String uiProxySid = getUiProxySessionId(oldest, client.getId());
+                if (uiProxySid != null) {
+                    // redis.setex("revoked-sid:" + uiProxySid, sessionTtlSeconds, "1");
+                    logger.infof("[KC24_AUTH] Marked uiproxy session %s revoked for KC session %s", uiProxySid, oldest.getId());
+                }
+                logger.infof("[KC24_AUTH] Terminating oldest session %s (ip=%s, started=%d) for user %s",
+                        oldest.getId(), oldest.getIpAddress(), oldest.getStarted(), user.getId());
+                AuthenticationManager.backchannelLogout(session, realm, oldest,
+                        session.getContext().getUri(), context.getConnection(),
+                        context.getHttpRequest().getHttpHeaders(), true);
+            } catch (Exception e) {
+                // Never let a failed eviction break the login; remove the session directly instead.
+                logger.warnf(e, "[KC24_AUTH] backchannelLogout failed for session %s, removing directly", oldest.getId());
+                session.sessions().removeUserSession(realm, oldest);
+            }
+        }
+        return true;
+    }
+
+    private String getStringConfig(AuthenticationFlowContext context, String key, String def) {
+        AuthenticatorConfigModel cfg = context.getAuthenticatorConfig();
+        String v = (cfg != null && cfg.getConfig() != null) ? cfg.getConfig().get(key) : null;
+        return StringUtils.isNotBlank(v) ? v : def;
+    }
+
+    private int getIntConfig(AuthenticationFlowContext context, String key, int def) {
+        try {
+            return Integer.parseInt(getStringConfig(context, key, String.valueOf(def)));
+        } catch (NumberFormatException e) {
+            logger.warn("[KC24_AUTH] Invalid config for " + key);
+            return def;
+        }
+    }
+
+    private String getUiProxySessionId(UserSessionModel userSession, String clientUuid) {
+        AuthenticatedClientSessionModel clientSession =
+                userSession.getAuthenticatedClientSessionByClient(clientUuid);
+        return clientSession == null ? null
+                : clientSession.getNote(AdapterConstants.CLIENT_SESSION_STATE);
+    }
 }
