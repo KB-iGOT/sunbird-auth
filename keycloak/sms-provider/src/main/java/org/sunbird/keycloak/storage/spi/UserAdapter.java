@@ -25,13 +25,6 @@ public class UserAdapter extends AbstractUserAdapterFederatedStorage {
         super(session, realm, storageProviderModel);
         this.user = user;
         this.keycloakId = StorageId.keycloakId(storageProviderModel, user.getId());
-
-        logger.info("[KC24_DEBUG] UserAdapter created:");
-        logger.info("[KC24_DEBUG]   - External User ID: " + user.getId());
-        logger.info("[KC24_DEBUG]   - Federated Keycloak ID: " + this.keycloakId);
-        logger.info("[KC24_DEBUG]   - Storage Provider ID: " + storageProviderModel.getId());
-        logger.info("[KC24_DEBUG]   - Username: " + user.getUsername());
-        logger.info("[KC24_DEBUG]   - Realm: " + realm.getName());
     }
 
     @Override
@@ -156,7 +149,6 @@ public class UserAdapter extends AbstractUserAdapterFederatedStorage {
 
     @Override
     public String getId() {
-        logger.info("[KC24_DEBUG] getId() called, returning: " + keycloakId);
         return keycloakId;
     }
 

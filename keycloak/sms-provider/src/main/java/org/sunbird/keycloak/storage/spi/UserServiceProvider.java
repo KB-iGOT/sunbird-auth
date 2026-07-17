@@ -164,117 +164,68 @@ public class UserServiceProvider
 
     @Override
     public boolean supportsCredentialType(String credentialType) {
-        logger.info("[KC24_CRED] supportsCredentialType called: " + credentialType);
-        boolean result = PasswordCredentialModel.TYPE.equals(credentialType);
-        logger.info("[KC24_CRED] supportsCredentialType result: " + result);
-        return result;
+        return PasswordCredentialModel.TYPE.equals(credentialType);
     }
 
     @Override
     public boolean isConfiguredFor(RealmModel realm, UserModel user, String credentialType) {
-        logger.info("[KC24_CRED] isConfiguredFor called: user=" + user.getId() + ", type=" + credentialType);
         if (!supportsCredentialType(credentialType))
             return false;
         try {
             PasswordCredentialProvider passwordProvider = (PasswordCredentialProvider) session
                     .getProvider(CredentialProvider.class, PasswordCredentialProviderFactory.PROVIDER_ID);
-            boolean result = passwordProvider.isConfiguredFor(realm, user, credentialType);
-            logger.info("[KC24_CRED] isConfiguredFor result: " + result);
-            return result;
+            return passwordProvider.isConfiguredFor(realm, user, credentialType);
         } catch (Exception e) {
-            logger.error("[KC24_CRED] isConfiguredFor error", e);
+            logger.error("isConfiguredFor error", e);
             return false;
         }
     }
 
     @Override
     public boolean isValid(RealmModel realm, UserModel user, CredentialInput input) {
-        logger.info("[KC24_CRED] ===== isValid() ENTRY =====");
-        logger.info("[KC24_CRED] user: " + user.getUsername() + ", userId: " + user.getId()
-                + ", userClass: " + user.getClass().getName());
-        logger.info("[KC24_CRED] credentialType: " + input.getType());
-        
-        // DEBUG: Check if we came through PasswordAndOtpAuthenticator
-        String authSessionNote = null;
-        try {
-            authSessionNote = session.getContext().getAuthenticationSession().getAuthNote(Constants.SECRET_KEY);
-        } catch (Exception e) {
-            logger.warn("[KC24_CRED] Could not access authSession: " + e.getMessage());
-        }
-        logger.info("[KC24_CRED] DEBUG: secretKey authNote present: " + (authSessionNote != null));
-        
-        // DEBUG: Check stack trace to see what called us
-        StackTraceElement[] stack = Thread.currentThread().getStackTrace();
-        logger.info("[KC24_CRED] DEBUG: Call stack (first 10 frames):");
-        for (int i = 0; i < Math.min(10, stack.length); i++) {
-            if (stack[i].getClassName().contains("sunbird") || stack[i].getClassName().contains("keycloak")) {
-                logger.info("[KC24_CRED] DEBUG: [" + i + "] " + stack[i].getClassName() + "." + stack[i].getMethodName() + "()");
-            }
-        }
-
         if (!supportsCredentialType(input.getType())) {
-            logger.warn("[KC24_CRED] FAIL: unsupported credential type: " + input.getType());
             return false;
         }
 
         try {
             // Step 1: Resolve (decrypt if needed) password
-            logger.info("[KC24_CRED] Step 1 - Resolving password from CredentialInput");
             String passwordToValidate = resolvePassword(input);
 
             if (passwordToValidate == null || passwordToValidate.isEmpty()) {
-                logger.warn("[KC24_CRED] FAIL: resolved password is null or empty");
                 return false;
             }
-            logger.info("[KC24_CRED] Step 1 DONE - password resolved, length: " + passwordToValidate.length());
 
             // Step 2: Validate the resolved plain-text password against Keycloak's
             // local credential store for this federated user via PasswordCredentialProvider (SPI).
-            logger.info("[KC24_CRED] Step 2 - Validating credentials via Keycloak PasswordCredentialProvider for user: " + user.getUsername());
             PasswordCredentialProvider passwordProvider = (PasswordCredentialProvider) session
                     .getProvider(CredentialProvider.class, PasswordCredentialProviderFactory.PROVIDER_ID);
-            boolean valid = passwordProvider.isValid(realm, user, UserCredentialModel.password(passwordToValidate));
-            logger.info("[KC24_CRED] Step 2 DONE - Keycloak PasswordCredentialProvider validation result: " + valid);
-            logger.info("[KC24_CRED] ===== isValid() EXIT - result: " + valid + " =====");
-            return valid;
+            return passwordProvider.isValid(realm, user, UserCredentialModel.password(passwordToValidate));
 
         } catch (Exception e) {
-            logger.error("[KC24_CRED] isValid() EXCEPTION: " + e.getClass().getName() + " - " + e.getMessage(), e);
+            logger.error("isValid() exception: " + e.getClass().getName() + " - " + e.getMessage(), e);
             return false;
         }
     }
 
     private String resolvePassword(CredentialInput input) {
-        logger.info("[KC24_CRED] resolvePassword() called");
         String rawPassword = input.getChallengeResponse();
-        logger.info("[KC24_CRED] rawPassword from CredentialInput: present=" + (rawPassword != null)
-                + ", length=" + (rawPassword != null ? rawPassword.length() : "null"));
         try {
             var httpRequest = session.getContext().getHttpRequest();
             if (httpRequest == null) {
-                logger.info("[KC24_CRED] httpRequest is null - using raw password (already decrypted by Authenticator)");
                 return rawPassword;
             }
 
             var formData = httpRequest.getDecodedFormParameters();
             String iv = formData != null ? formData.getFirst("iv") : null;
-            logger.info("[KC24_CRED] IV from form: present=" + (iv != null)
-                    + ", length=" + (iv != null ? iv.length() : "null"));
 
             if (iv == null || iv.isEmpty()) {
-                logger.info("[KC24_CRED] No IV in form - password was already decrypted by PasswordAndOtpAuthenticator, using as-is");
                 return rawPassword;
             }
 
             String secretKey = session.getContext()
                     .getAuthenticationSession().getAuthNote(Constants.SECRET_KEY);
-            logger.info("[KC24_CRED] secretKey from authNote: present=" + (secretKey != null)
-                    + ", length=" + (secretKey != null ? secretKey.length() : "null"));
 
             if (secretKey == null || secretKey.isEmpty()) {
-                logger.warn("[KC24_CRED] IV present but secretKey missing from authNote - using raw password");
-                logger.warn("[KC24_CRED] DEBUG: This suggests authentication is NOT going through PasswordAndOtpAuthenticator");
-                logger.warn("[KC24_CRED] DEBUG: Expected to find secretKey under authNote key: '" + Constants.SECRET_KEY + "'");
                 return rawPassword;
             }
 
@@ -285,18 +236,13 @@ public class UserServiceProvider
             try {
                 java.util.Base64.getDecoder().decode(rawPassword);
             } catch (IllegalArgumentException notBase64) {
-                logger.info("[KC24_CRED] rawPassword is not Base64-encoded - already decrypted by Authenticator, using as-is");
                 return rawPassword;
             }
 
-            logger.info("[KC24_CRED] Attempting AES decryption in resolvePassword");
-            String decrypted = decryptPassword(rawPassword, secretKey, iv);
-            logger.info("[KC24_CRED] AES decryption successful, decrypted length: " + decrypted.length());
-            return decrypted;
+            return decryptPassword(rawPassword, secretKey, iv);
 
         } catch (Exception e) {
-            logger.warn("[KC24_CRED] resolvePassword() exception: " + e.getClass().getName() + " - " + e.getMessage(), e);
-            logger.warn("[KC24_CRED] Using raw password as fallback");
+            logger.warn("resolvePassword() exception: " + e.getClass().getName() + " - " + e.getMessage(), e);
             return rawPassword;
         }
     }
