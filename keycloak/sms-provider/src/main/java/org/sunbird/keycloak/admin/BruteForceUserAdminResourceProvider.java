@@ -21,17 +21,14 @@ import java.util.stream.Collectors;
 
 public class BruteForceUserAdminResourceProvider implements AdminRealmResourceProvider {
 
-    private static final Logger logger = Logger.getLogger(BruteForceUserAdminResourceProvider.class);
     private final KeycloakSession session;
 
     public BruteForceUserAdminResourceProvider(KeycloakSession session) {
         this.session = session;
-        logger.debug("PROVIDER CONSTRUCTOR CALLED - BruteForceUserResourceProvider created");
     }
 
     @Override
     public void close() {
-        logger.debug("PROVIDER close() CALLED");
     }
 
     public static class BruteForceResource {
@@ -42,14 +39,12 @@ public class BruteForceUserAdminResourceProvider implements AdminRealmResourcePr
         public BruteForceResource(KeycloakSession session) {
             this.session = session;
             this.userService = new UserService();
-            logger.debug("RESOURCE CONSTRUCTOR CALLED - BruteForceResource created");
         }
 
         @GET
         @Path("test")
         @Produces(MediaType.APPLICATION_JSON)
         public Response test() {
-            logger.debug("TEST ENDPOINT CALLED!");
             Map<String, Object> response = new HashMap<>();
             response.put("message", "Test endpoint working!");
             response.put("timestamp", System.currentTimeMillis());
@@ -66,41 +61,24 @@ public class BruteForceUserAdminResourceProvider implements AdminRealmResourcePr
                 @QueryParam("briefRepresentation") @DefaultValue("false") boolean briefRepresentation,
                 @QueryParam("q") String q) {
 
-            logger.info("BruteForceUserResource: getBruteForceUsers called");
-            logger.info("Parameters: search=" + search + ", q=" + q + ", first=" + first + ", max=" + max + ", brief="
-                    + briefRepresentation);
-
-            RealmModel realm = session.getContext().getRealm();
-            logger.info("Realm: " + (realm != null ? realm.getName() : "NULL"));
-
             if (search == null || search.trim().isEmpty()) {
-                logger.warn("Search term is empty, returning empty list");
                 return Response.ok(List.of()).build();
             }
 
             String trimmedSearch = search.trim();
-            logger.info("Searching for users with search term: '" + trimmedSearch + "'");
 
             List<User> users = null;
 
             try {
                 // Method 1: Try UserService first
-                logger.info("Step 1: Trying UserService.getByUsername()");
                 if (userService != null) {
                     users = userService.getByUsername(trimmedSearch);
-                    logger.info(
-                            "UserService.getByUsername result: " + (users != null ? users.size() : "NULL") + " users");
-                } else {
-                    logger.warn("UserService is null, skipping");
                 }
 
                 // Method 2: Try UserSearchService by email
                 if (users == null || users.isEmpty()) {
-                    logger.info("Step 2: Trying UserSearchService.getUserByKey('email')");
                     try {
                         users = UserSearchService.getUserByKey("email", trimmedSearch);
-                        logger.info(
-                                "getUserByKey('email') result: " + (users != null ? users.size() : "NULL") + " users");
                     } catch (Exception e) {
                         logger.error("Error in UserSearchService.getUserByKey('email'): " + e.getMessage(), e);
                     }
@@ -108,11 +86,8 @@ public class BruteForceUserAdminResourceProvider implements AdminRealmResourcePr
 
                 // Method 3: Try UserSearchService by username
                 if (users == null || users.isEmpty()) {
-                    logger.info("Step 3: Trying UserSearchService.getUserByKey('userName')");
                     try {
                         users = UserSearchService.getUserByKey("userName", trimmedSearch);
-                        logger.info("getUserByKey('userName') result: " + (users != null ? users.size() : "NULL")
-                                + " users");
                     } catch (Exception e) {
                         logger.error("Error in UserSearchService.getUserByKey('userName'): " + e.getMessage(), e);
                     }
@@ -124,17 +99,13 @@ public class BruteForceUserAdminResourceProvider implements AdminRealmResourcePr
             }
 
             if (users == null) {
-                logger.info("Users list is null, initializing empty list");
                 users = List.of();
             }
-
-            logger.info("Total users found before conversion: " + users.size());
 
             // Convert to UserRepresentation
             List<UserRepresentation> userReps;
             try {
                 userReps = users.stream()
-                        .peek(user -> logger.info("Processing user: " + (user != null ? user.getUsername() : "NULL")))
                         .map(user -> {
                             UserRepresentation rep = new UserRepresentation();
                             rep.setId(user.getId());
@@ -163,14 +134,10 @@ public class BruteForceUserAdminResourceProvider implements AdminRealmResourcePr
                         .limit(max)
                         .collect(Collectors.toList());
 
-                logger.info("Successfully converted " + userReps.size() + " users to UserRepresentation");
-                logger.info("Final response size: " + userReps.size() + " users");
-
             } catch (Exception e) {
                 logger.error("Exception during user conversion: " + e.getMessage(), e);
                 return Response.serverError().entity(Map.of("error", "Conversion failed: " + e.getMessage())).build();
             }
-            logger.info("keycloak_24 changes check 2: " + userReps.size());
             return Response.ok(userReps).build();
         }
 
@@ -178,7 +145,6 @@ public class BruteForceUserAdminResourceProvider implements AdminRealmResourcePr
         @GET
         @Produces(MediaType.APPLICATION_JSON)
         public Response root() {
-            logger.debug("ROOT ENDPOINT CALLED!");
             Map<String, Object> response = new HashMap<>();
             response.put("message", "BruteForce Resource Provider is working!");
             response.put("available_endpoints", new String[] { "test", "brute-force-users" });
@@ -190,7 +156,6 @@ public class BruteForceUserAdminResourceProvider implements AdminRealmResourcePr
     @Override
     public Object getResource(KeycloakSession session, RealmModel realm, AdminPermissionEvaluator auth,
             AdminEventBuilder adminEvent) {
-        logger.debug("PROVIDER getResource() CALLED - returning BruteForceResource");
         return new BruteForceResource(session);
     }
 

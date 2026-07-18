@@ -14,37 +14,31 @@ public class BruteForceUserAdminResourceProviderFactory implements AdminRealmRes
 
     @Override
     public String getId() {
-        logger.info("[KC24_ADMIN_DEBUG] BruteForceUserAdminResourceProviderFactory.getId() called, returning: " + ID);
         return ID;
     }
 
     @Override
     public AdminRealmResourceProvider create(KeycloakSession session) {
-        logger.info("[KC24_ADMIN_DEBUG] FACTORY CREATE CALLED - Creating BruteForceUserResourceProvider");
         try {
-            BruteForceUserAdminResourceProvider provider = new BruteForceUserAdminResourceProvider(session);
-            logger.info("[KC24_ADMIN_DEBUG] FACTORY CREATE SUCCESS - Provider created successfully");
-            return provider;
+            return new BruteForceUserAdminResourceProvider(session);
         } catch (Exception e) {
-            logger.error("[KC24_ADMIN_DEBUG] FACTORY CREATE FAILED: " + e.getMessage(), e);
+            logger.error("Failed to create BruteForceUserAdminResourceProvider: " + e.getMessage(), e);
             throw e;
         }
     }
 
     @Override
     public void init(Scope config) {
-        logger.info("[KC24_ADMIN_DEBUG] FACTORY INIT CALLED - ui-ext provider initializing");
+        // Empty implementation
     }
 
     @Override
     public void postInit(KeycloakSessionFactory factory) {
-        logger.debug("FACTORY POST-INIT CALLED");
         // Empty implementation
     }
 
     @Override
     public void close() {
-        logger.debug("FACTORY CLOSE CALLED");
         // Empty implementation
     }
 

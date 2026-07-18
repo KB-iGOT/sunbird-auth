@@ -13,7 +13,6 @@ import java.util.Base64;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -82,28 +81,16 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
      */
     @Override
     public void authenticate(AuthenticationFlowContext context) {
-        logger.info("[KC24_AUTH] ===== authenticate() CALLED - ENTRY POINT =====");
-        logger.info("[KC24_AUTH] PasswordAndOtpAuthenticator.authenticate() - Keycloak Version 24");
-
-        // Log request details
-        logger.info("[KC24_AUTH] Request URI: " + context.getHttpRequest().getUri().getRequestUri());
-        logger.info("[KC24_AUTH] Request path: " + context.getHttpRequest().getUri().getPath());
-
         String secretKey = context.getAuthenticationSession().getAuthNote(Constants.SECRET_KEY);
         if (StringUtils.isBlank(secretKey)) {
             // Generate the secret key
             secretKey = generateSecretKey();
-            logger.info("[KC24_AUTH] Generated new secret key, length: " + secretKey.length());
-        } else {
-            logger.info("[KC24_AUTH] Using existing secret key from authNote, length: " + secretKey.length());
         }
 
         String flagPage = getValue(context, Constants.FLAG_PAGE);
-        logger.info("[KC24_AUTH] flagPage from form: '" + flagPage + "'");
 
         // Store the secret key as an authentication session note
         context.getAuthenticationSession().setAuthNote(Constants.SECRET_KEY, secretKey);
-        logger.info("[KC24_AUTH] Set secretKey in authNote. authNote key: '" + Constants.SECRET_KEY + "', value length: " + secretKey.length());
 
 		LoginFormsProvider formsProvider = context.form();
 		formsProvider.setAttribute(Constants.SECRET_KEY, secretKey);
@@ -139,28 +126,8 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
     @Override
     public void action(AuthenticationFlowContext context) {
         MultivaluedMap<String, String> qParamMap = context.getHttpRequest().getUri().getQueryParameters();
-        Iterator<Entry<String, List<String>>> itr = qParamMap.entrySet().iterator();
-        while (itr.hasNext()) {
-            Entry<String, List<String>> entry = itr.next();
-            logger.info(String.format("[KC24_AUTH] query param: key=%s, value=%s", entry.getKey(), entry.getValue()));
-        }
-
-        // Log all form data keys (not values — passwords are sensitive)
-        MultivaluedMap<String, String> formData = context.getHttpRequest().getDecodedFormParameters();
-        logger.info("[KC24_AUTH] form data keys: " + formData.keySet());
-        logger.info("[KC24_AUTH] form has 'password': " + formData.containsKey("password"));
-        logger.info("[KC24_AUTH] form has 'iv': " + formData.containsKey("iv")
-                + ", iv length: " + (formData.getFirst("iv") != null ? formData.getFirst("iv").length() : "null"));
-        logger.info("[KC24_AUTH] form 'page_type': " + formData.getFirst(Constants.FLAG_PAGE));
-        logger.info("[KC24_AUTH] form 'username': " + formData.getFirst("username"));
-
-        // Log auth session notes
-        String secretKey = context.getAuthenticationSession().getAuthNote(Constants.SECRET_KEY);
-        logger.info("[KC24_AUTH] secretKey in authNote present: " + (secretKey != null)
-                + ", length: " + (secretKey != null ? secretKey.length() : "null"));
 
         String flagPage = getValue(context, Constants.FLAG_PAGE);
-        logger.info("[KC24_AUTH] flagPage resolved to: '" + flagPage + "'");
         switch (flagPage) {
             case Constants.FLAG_OTP_PAGE:
                 authenticateOtp(context);
@@ -172,13 +139,9 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
                 sendOtp(context, qParamMap.getFirst(Constants.REDIRECT_URI_KEY));
                 break;
             case Constants.FLAG_LOGIN_WITH_PASS:
-                logger.info("[KC24_AUTH] >>> Entering FLAG_LOGIN_WITH_PASS branch");
                 if (!validateForm(context, context.getHttpRequest().getDecodedFormParameters())) {
-                    logger.info("[KC24_AUTH] <<< validateForm returned FALSE - going to error page");
                     goErrorPage(context, "Invalid credentials!");
                 } else if (enforceSessionLimit(context, context.getUser(), Constants.LOGIN_PAGE)) {
-                    logger.info("[KC24_AUTH] <<< validateForm returned TRUE - calling context.success()");
-                    logger.info("[KC24_AUTH] redirect_uri: " + qParamMap.getFirst(Constants.REDIRECT_URI_KEY));
                     context.getAuthenticationSession().setAuthNote(Details.REDIRECT_URI,
                             qParamMap.getFirst(Constants.REDIRECT_URI_KEY));
                     context.success();
@@ -310,9 +273,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
     }
 
     protected boolean validateForm(AuthenticationFlowContext context, MultivaluedMap<String, String> formData) {
-        logger.info("[KC24_AUTH] validateForm() called, delegating to validateUserAndPassword()");
         boolean result = validateUserAndPassword(context, formData);
-        logger.info("[KC24_AUTH] validateForm() result: " + result);
         return result;
     }
 
@@ -746,11 +707,8 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 
     public boolean validateUserAndPassword(AuthenticationFlowContext context,
             MultivaluedMap<String, String> inputData) {
-        logger.info("[KC24_AUTH] ===== validateUserAndPassword() ENTRY =====");
         String username = inputData.getFirst(AuthenticationManager.FORM_USERNAME);
-        logger.info("[KC24_AUTH] username from form: '" + username + "'");
         if (username == null) {
-            logger.warn("[KC24_AUTH] FAIL: username is null");
             context.getEvent().error(Errors.USER_NOT_FOUND);
             Response challengeResponse = challenge(context, Messages.INVALID_USER);
             context.failureChallenge(AuthenticationFlowError.INVALID_USER, challengeResponse);
@@ -763,12 +721,10 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
         context.getEvent().detail(Details.USERNAME, username);
         context.getAuthenticationSession().setAuthNote(AbstractUsernameFormAuthenticator.ATTEMPTED_USERNAME, username);
 
-        logger.info("[KC24_AUTH] Looking up user via KeycloakModelUtils.findUserByNameOrEmail for: " + username);
         UserModel user = null;
         try {
             user = KeycloakModelUtils.findUserByNameOrEmail(context.getSession(), context.getRealm(), username);
         } catch (ModelDuplicateException mde) {
-            logger.error("[KC24_AUTH] FAIL: ModelDuplicateException for user: " + username, mde);
             ServicesLogger.LOGGER.modelDuplicateException(mde);
 
             // Could happen during federation import
@@ -782,38 +738,26 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
         }
 
         if (user == null) {
-            logger.warn("[KC24_AUTH] FAIL: user not found for username: " + username);
             context.getEvent().getEvent().setError(Errors.USER_NOT_FOUND);
             return false;
         }
 
-        logger.info("[KC24_AUTH] User found: id=" + user.getId()
-                + ", username=" + user.getUsername()
-                + ", email=" + user.getEmail()
-                + ", enabled=" + user.isEnabled()
-                + ", class=" + user.getClass().getName());
-
         if (!user.isEnabled()) {
-            logger.warn("[KC24_AUTH] FAIL: user is disabled: " + user.getId());
             context.getEvent().getEvent().setError(Errors.USER_DISABLED);
             return false;
         }
 
         if (context.getRealm().isBruteForceProtected()) {
-            logger.info("[KC24_AUTH] Brute force protection is enabled, checking...");
             if (context.getProtector().isTemporarilyDisabled(context.getSession(), context.getRealm(), user)) {
-                logger.warn("[KC24_AUTH] FAIL: user temporarily disabled by brute force protection: " + user.getId());
                 context.getEvent().getEvent().setError(Errors.USER_TEMPORARILY_DISABLED);
                 return false;
             }
-            logger.info("[KC24_AUTH] Brute force check passed");
         }
 
         if (!validatePassword(context, user, inputData)) {
             context.getEvent().getEvent().setError(Errors.INVALID_USER_CREDENTIALS);
             return false;
         }
-        logger.info("[KC24_AUTH] <<< validatePassword returned TRUE - credentials valid");
 
         String rememberMe = inputData.getFirst("rememberMe");
         boolean remember = rememberMe != null && rememberMe.equalsIgnoreCase("on");
@@ -829,111 +773,50 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 
     public boolean validatePassword(AuthenticationFlowContext context, UserModel user,
             MultivaluedMap<String, String> inputData) {
-        logger.info("[KC24_PWD] validatePassword called for user: " + user.getUsername() + ", userId: " + user.getId());
-
         String encryptedPassword = inputData.getFirst(CredentialRepresentation.PASSWORD);
-        logger.info("[KC24_PWD] Step 1 - encryptedPassword present: " + (encryptedPassword != null) +
-                ", length: " + (encryptedPassword != null ? encryptedPassword.length() : "null"));
-
         String secretKey = context.getAuthenticationSession().getAuthNote(Constants.SECRET_KEY);
-        logger.info("[KC24_PWD] Step 2 - secretKey from authNote present: " + (secretKey != null) +
-                ", length: " + (secretKey != null ? secretKey.length() : "null"));
-
         String iv = inputData.getFirst(Constants.IV);
-        logger.info("[KC24_PWD] Step 3 - IV from form present: " + (iv != null) +
-                ", length: " + (iv != null ? iv.length() : "null"));
 
         if (encryptedPassword == null || encryptedPassword.isEmpty()) {
-            logger.warn("[KC24_PWD] encryptedPassword is null or empty - returning false");
             return false;
         }
 
         // Decrypt the password
         String decryptedPassword = decryptPassword(encryptedPassword, secretKey, iv);
-        logger.info("[KC24_PWD] Step 4 - decryptedPassword present: " + (decryptedPassword != null) +
-                ", length: " + (decryptedPassword != null ? decryptedPassword.length() : "null"));
-
         if (decryptedPassword == null || decryptedPassword.isEmpty()) {
-            logger.warn("[KC24_PWD] decryptedPassword is null or empty after decryption - returning false");
             return false;
         }
 
         List<CredentialInput> credentials = new LinkedList<>();
         credentials.add(UserCredentialModel.password(decryptedPassword));
 
-        logger.info("[KC24_PWD] Step 5 - Calling UserCredentialManager.isValid() for user: " + user.getId());
-        logger.info("[KC24_PWD] Step 5 - UserModel class: " + user.getClass().getName());
         UserCredentialManager credManager = new UserCredentialManager(context.getSession(), context.getRealm(), user);
-        logger.info("[KC24_PWD] Step 5 - UserCredentialManager created: " + credManager.getClass().getName());
-
         boolean isValid = credManager.isValid(credentials);
-        logger.info("[KC24_PWD] Step 6 - isValid result: " + isValid);
 
-        boolean finalResult = decryptedPassword != null && !decryptedPassword.isEmpty() && isValid;
-        logger.info("[KC24_PWD] Step 7 - Final result: " + finalResult);
-        return finalResult;
+        return decryptedPassword != null && !decryptedPassword.isEmpty() && isValid;
     }
 
     private String decryptPassword(String encryptedPassword, String secretKey, String iv) {
-        logger.info("[KC24_DECRYPT] decryptPassword called");
-        logger.info("[KC24_DECRYPT] encryptedPassword length: " + (encryptedPassword != null ? encryptedPassword.length() : "null"));
-        logger.info("[KC24_DECRYPT] secretKey length: " + (secretKey != null ? secretKey.length() : "null"));
-        logger.info("[KC24_DECRYPT] iv length: " + (iv != null ? iv.length() : "null"));
-
-        // ENHANCED DEBUGGING - Show full details for troubleshooting
-        if (secretKey != null) {
-            logger.info("[KC24_DECRYPT] DEBUG - FULL secretKey: '" + secretKey + "'");
-            byte[] keyBytes = secretKey.getBytes(StandardCharsets.UTF_8);
-            logger.info("[KC24_DECRYPT] DEBUG - secretKey as hex: " + bytesToHex(keyBytes));
-            logger.info("[KC24_DECRYPT] DEBUG - secretKey byte length: " + keyBytes.length);
-        }
-        if (iv != null) {
-            logger.info("[KC24_DECRYPT] DEBUG - Full IV Base64: '" + iv + "'");
-        }
-        if (encryptedPassword != null) {
-            logger.info("[KC24_DECRYPT] DEBUG - FULL encryptedPassword: '" + encryptedPassword + "'");
-        }
-
         if (secretKey == null || iv == null) {
-            logger.warn("[KC24_DECRYPT] secretKey or iv is null - secretKey null: " + (secretKey == null) + ", iv null: " + (iv == null));
-            logger.warn("[KC24_DECRYPT] Returning raw password since decryption is not possible");
             return encryptedPassword;
         }
 
         try {
-            logger.info("[KC24_DECRYPT] Step 1 - Decoding Base64 encryptedPassword");
             byte[] decodedBytes = Base64.getDecoder().decode(encryptedPassword);
-            logger.info("[KC24_DECRYPT] Step 2 - Decoded password bytes length: " + decodedBytes.length);
-            logger.info("[KC24_DECRYPT] Step 2 - Decoded password hex: " + bytesToHex(decodedBytes));
-
-            logger.info("[KC24_DECRYPT] Step 3 - Decoding Base64 IV");
             byte[] ivBytes = Base64.getDecoder().decode(iv);
-            logger.info("[KC24_DECRYPT] Step 4 - Decoded IV bytes length: " + ivBytes.length);
-            logger.info("[KC24_DECRYPT] Step 4 - Decoded IV hex: " + bytesToHex(ivBytes));
-
             IvParameterSpec ivSpec = new IvParameterSpec(ivBytes);
 
-            // Use StandardCharsets.UTF_8 for Java 17 compatibility
             Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
             SecretKeySpec keySpec = new SecretKeySpec(secretKey.getBytes(StandardCharsets.UTF_8), "AES");
-            logger.info("[KC24_DECRYPT] Step 5 - SecretKeySpec created, key bytes length: " + secretKey.getBytes(StandardCharsets.UTF_8).length);
-
             cipher.init(Cipher.DECRYPT_MODE, keySpec, ivSpec);
-            logger.info("[KC24_DECRYPT] Step 6 - Cipher initialized successfully");
 
             byte[] decryptedBytes = cipher.doFinal(decodedBytes);
-            String decryptedPassword = new String(decryptedBytes, StandardCharsets.UTF_8);
-            logger.info("[KC24_DECRYPT] Step 7 - Decryption successful, decrypted length: " + decryptedPassword.length());
-            logger.info("[KC24_DECRYPT] Step 7 - SUCCESS: Decryption worked with current key");
-            return decryptedPassword;
+            return new String(decryptedBytes, StandardCharsets.UTF_8);
         } catch (IllegalArgumentException e) {
-            logger.error("[KC24_DECRYPT] Base64 decoding failed - input may not be Base64 encoded: " + e.getMessage(), e);
-            logger.info("[KC24_DECRYPT] Returning raw password as fallback");
+            logger.error("Base64 decoding failed while decrypting password: " + e.getMessage(), e);
             return encryptedPassword;
         } catch (javax.crypto.BadPaddingException e) {
-            logger.error("[KC24_DECRYPT] BadPaddingException - KEY MISMATCH! Client and server using different keys");
-            logger.error("[KC24_DECRYPT] This means client encrypted with one key, server trying to decrypt with different key");
-            logger.error("[KC24_DECRYPT] Error details: " + e.getMessage(), e);
+            logger.error("Key mismatch while decrypting password: " + e.getMessage(), e);
 
             // Try alternative: maybe client is using a default/hardcoded key
             String[] alternativeKeys = {
@@ -946,7 +829,6 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 
             for (String altKey : alternativeKeys) {
                 try {
-                    logger.info("[KC24_DECRYPT] Trying alternative key: " + altKey.substring(0, Math.min(4, altKey.length())) + "...");
                     Cipher altCipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
                     SecretKeySpec altKeySpec = new SecretKeySpec(altKey.getBytes(StandardCharsets.UTF_8), "AES");
                     IvParameterSpec ivSpec = new IvParameterSpec(Base64.getDecoder().decode(iv));
@@ -954,41 +836,26 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
 
                     byte[] decodedBytes = Base64.getDecoder().decode(encryptedPassword);
                     byte[] decryptedBytes = altCipher.doFinal(decodedBytes);
-                    String decryptedPassword = new String(decryptedBytes, StandardCharsets.UTF_8);
-                    logger.warn("[KC24_DECRYPT] SUCCESS with alternative key: " + altKey.substring(0, Math.min(4, altKey.length())) + "...");
-                    return decryptedPassword;
+                    return new String(decryptedBytes, StandardCharsets.UTF_8);
                 } catch (Exception altE) {
                     // Continue to next alternative key
                 }
             }
 
-            logger.warn("[KC24_DECRYPT] FALLBACK: All decryption attempts failed, using encrypted string as plaintext");
             if (encryptedPassword != null && encryptedPassword.length() > 4 && encryptedPassword.length() < 100) {
-                logger.info("[KC24_DECRYPT] Using encryptedPassword as plaintext fallback, length: " + encryptedPassword.length());
                 return encryptedPassword;
             }
 
             throw new RuntimeException("Error while decrypting password - key mismatch", e);
         } catch (Exception e) {
-            logger.error("[KC24_DECRYPT] Other exception during decryption: " + e.getClass().getName() + " - " + e.getMessage(), e);
-            logger.warn("[KC24_DECRYPT] FALLBACK: Using encrypted string as plaintext");
+            logger.error("Error while decrypting password: " + e.getClass().getName() + " - " + e.getMessage(), e);
 
             if (encryptedPassword != null && encryptedPassword.length() > 4 && encryptedPassword.length() < 100) {
-                logger.info("[KC24_DECRYPT] Using encryptedPassword as plaintext fallback, length: " + encryptedPassword.length());
                 return encryptedPassword;
             }
 
             throw new RuntimeException("Error while decrypting password", e);
         }
-    }
-
-    // Helper method for hex debugging
-    private String bytesToHex(byte[] bytes) {
-        StringBuilder sb = new StringBuilder();
-        for (byte b : bytes) {
-            sb.append(String.format("%02x", b));
-        }
-        return sb.toString();
     }
 
     private boolean invalidUser(AuthenticationFlowContext context, UserModel user) {
