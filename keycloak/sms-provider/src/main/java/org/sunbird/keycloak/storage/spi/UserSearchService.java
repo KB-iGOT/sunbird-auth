@@ -125,8 +125,13 @@ public class UserSearchService {
       Object personalDetailsObj = profileDetailsMap.get(Constants.PERSONAL_DETAILS);
       if (personalDetailsObj instanceof Map) {
         Map<String, Object> personalDetails = (Map<String, Object>) personalDetailsObj;
-        user.setDecryptedEmail((String) personalDetails.get(Constants.PRIMARY_EMAIL));
-        user.setDecryptedPhone((String) personalDetails.get(Constants.MOBILE));
+        Object primaryEmailObj = personalDetails.get(Constants.PRIMARY_EMAIL);
+        Object mobileObj = personalDetails.get(Constants.MOBILE);
+        user.setDecryptedEmail(primaryEmailObj != null ? String.valueOf(primaryEmailObj) : "");
+        user.setDecryptedPhone(mobileObj != null ? String.valueOf(mobileObj) : "");
+      } else {
+        user.setDecryptedEmail("");
+        user.setDecryptedPhone("");
       }
 
       Object professionalDetailsObj =
