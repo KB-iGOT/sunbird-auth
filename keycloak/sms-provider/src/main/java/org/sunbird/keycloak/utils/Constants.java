@@ -126,4 +126,9 @@ public class Constants {
 	public static final String USER_TYPE = "userType";
 	public static final String IS_VERIFIED = "isVerified";
 	public static final String LOGIN_ID = "loginId";
+	public static final String USER_DECRYPTED_EMAIL = "userDecryptedEmail";
+	public static final String USER_DECRYPTED_PHONE = "userDecryptedPhone";
+	public static final String PERSONAL_DETAILS = "personalDetails";
+	public static final String PRIMARY_EMAIL = "primaryEmail";
+	public static final String MOBILE = "mobile";
 }

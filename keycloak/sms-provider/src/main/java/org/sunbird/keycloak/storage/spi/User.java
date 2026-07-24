@@ -19,6 +19,8 @@ public class User {
   private String orgName;
   private String designation;
   private String group;
+  private String decryptedEmail;
+  private String decryptedPhone;
 
   public User() {}
 
@@ -138,5 +140,21 @@ public class User {
 
   public void setGroup(String group) {
     this.group = group;
+  }
+
+  public String getDecryptedEmail() {
+    return decryptedEmail;
+  }
+
+  public void setDecryptedEmail(String decryptedEmail) {
+    this.decryptedEmail = decryptedEmail;
+  }
+
+  public String getDecryptedPhone() {
+    return decryptedPhone;
+  }
+
+  public void setDecryptedPhone(String decryptedPhone) {
+    this.decryptedPhone = decryptedPhone;
   }
 }
