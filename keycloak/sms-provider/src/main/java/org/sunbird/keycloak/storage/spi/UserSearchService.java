@@ -121,6 +121,14 @@ public class UserSearchService {
         return;
       }
 
+      // Decrypted email/phone live under profileDetails.personalDetails
+      Object personalDetailsObj = profileDetailsMap.get(Constants.PERSONAL_DETAILS);
+      if (personalDetailsObj instanceof Map) {
+        Map<String, Object> personalDetails = (Map<String, Object>) personalDetailsObj;
+        user.setDecryptedEmail((String) personalDetails.get(Constants.PRIMARY_EMAIL));
+        user.setDecryptedPhone((String) personalDetails.get(Constants.MOBILE));
+      }
+
       Object professionalDetailsObj =
               profileDetailsMap.get(Constants.PROFESIONAL_DETAILS);
 
