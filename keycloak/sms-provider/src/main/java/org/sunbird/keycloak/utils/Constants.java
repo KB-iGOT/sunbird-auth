@@ -131,4 +131,37 @@ public class Constants {
 	public static final String PERSONAL_DETAILS = "personalDetails";
 	public static final String PRIMARY_EMAIL = "primaryEmail";
 	public static final String MOBILE = "mobile";
+	public static final String SAML_CREATE_USER_URL = "sunbird_saml_create_user_url";//create User
+	public static final String SAML_PHONE_ATTRIBUTE = "sunbird_saml_phone_attribute";
+	public static final String SAML_FAIL_ON_CREATE_ERROR = "sunbird_saml_fail_on_create_error";
+	public static final String SAML_DESIGNATION_ATTRIBUTE = "sunbird_saml_designation_attribute";
+	public static final String SAML_GROUP_ATTRIBUTE = "sunbird_saml_group_attribute";
+	public static final String SAML_ORG_ID_ATTRIBUTE = "sunbird_saml_org_id_attribute";
+	public static final String SAML_ORG_NAME_ATTRIBUTE = "sunbird_saml_org_name_attribute";
+	public static final String DEFAULT_PHONE_ATTRIBUTE = "phone";
+	public static final String DEFAULT_DESIGNATION_ATTRIBUTE = "designation";
+	public static final String DEFAULT_GROUP_ATTRIBUTE = "group";
+	public static final String DEFAULT_ORG_ID_ATTRIBUTE = "orgId";
+	public static final String DEFAULT_ORG_NAME_ATTRIBUTE = "orgName";
+	public static final String PHONE_REGEX = "\\d{10}";
+	public static final String ERROR_MISSING_EMAIL = "Missing email in SAML assertion.";
+	public static final String ERROR_MISSING_PHONE = "Missing phone in SAML assertion.";
+	public static final String ERROR_INVALID_PHONE =
+			"Invalid phone in SAML assertion; a 10-digit mobile number is required.";
+	public static final String ERROR_PHONE_ALREADY_REGISTERED =
+			"This phone is already registered with an existing user.";
+	public static final String LOOKUP_URI = "/private/user/v1/lookup";
+	public static final String SUCCESS = "SUCCESS";
+	public static final String OK = "OK";
+	public static final String PUBLIC = "PUBLIC";
+	public static final String CONTENT_TYPE = "Content-Type";
+	public static final String APPLICATION_JSON = "application/json";
+	public static final String AUTHORIZATION = "Authorization";
+	public static final String EMAIL_VERIFIED = "emailVerified";
+	public static final String PHONE_VERIFIED = "phoneVerified";
+	public static final String PROFILE_DETAILS = "profileDetails";
+	public static final String ORGID = "orgId";
+	public static final String API_FIRST_NAME = "firstName";
+	public static final String API_LAST_NAME = "lastName";
+	public static final String CHANNEL = "channel";
 }
