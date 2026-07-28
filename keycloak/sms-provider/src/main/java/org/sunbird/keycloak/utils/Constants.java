@@ -131,7 +131,7 @@ public class Constants {
 	public static final String PERSONAL_DETAILS = "personalDetails";
 	public static final String PRIMARY_EMAIL = "primaryEmail";
 	public static final String MOBILE = "mobile";
-	public static final String CREATE_USER_URI = "/v5/cb/user/create";
+	public static final String CREATE_USER_URI = "/v5/cb/user/ntpc/create";
 	public static final String SAML_PHONE_ATTRIBUTE = "sunbird_saml_phone_attribute";
 	public static final String SAML_FAIL_ON_CREATE_ERROR = "sunbird_saml_fail_on_create_error";
 	public static final String DEFAULT_PHONE_ATTRIBUTE = "phone";
