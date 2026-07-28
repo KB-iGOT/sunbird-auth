@@ -1,12 +1,11 @@
 package org.sunbird.keycloak.saml;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.ws.rs.core.Response;
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import org.apache.commons.lang3.StringUtils;
 import org.jboss.logging.Logger;
@@ -178,62 +177,49 @@ public class CreateLearnerUserAuthenticator implements Authenticator {
 
     /** Call the V5 create API to provision the learner-service user. */
     private boolean createLearnerUser(UserModel user, String email, String phone) {
-        String createUrl = System.getenv(Constants.SAML_CREATE_USER_URL);
-        logger.info("CreateLearnerUserAuthenticator: using create URL: " + createUrl);
-        if (StringUtils.isBlank(createUrl)) {
-            logger.error(
-                    "CreateLearnerUserAuthenticator: "
-                            + Constants.SAML_CREATE_USER_URL
-                            + " env var is not set; cannot create learner user.");
-            return false;
+        // The create API takes only firstName, lastName, channel, phone and email; everything else
+        // (verification flags, roles, profileDetails) is set by the learner service itself.
+        Map<String, Object> request = new LinkedHashMap<>();
+
+        // firstName is mandatory on the create API; lastName is optional in the assertion.
+        request.put(Constants.FIRST_NAME_KEY, buildFirstName(user));
+        String lastName = StringUtils.trimToEmpty(user.getLastName());
+        if (StringUtils.isNotBlank(lastName)) {
+            request.put(Constants.LAST_NAME_KEY, lastName);
         }
 
-        Map<String, Object> request = new LinkedHashMap<>();
+        // All first-broker-login users are provisioned into the iGOT custodian org, so the channel
+        // is the custodian channel rather than anything carried in the assertion.
+        String channel = config(Constants.CUSTODIAN_CHANNEL, Constants.DEFAULT_CUSTODIAN_CHANNEL);
+        if (StringUtils.isNotBlank(channel)) {
+            request.put(Constants.CHANNEL, channel);
+        } else {
+            logger.warn(
+                    "CreateLearnerUserAuthenticator: "
+                            + Constants.CUSTODIAN_CHANNEL
+                            + " is not set, so no channel can be sent; the learner service will fall"
+                            + " back to its own custodian org. email=" + email);
+        }
         request.put(Constants.EMAIL, email);
         request.put(Constants.EMAIL_VERIFIED, true);
         request.put(Constants.PHONE, phone);
         request.put(Constants.PHONE_VERIFIED, true);
 
-        // firstName is mandatory on the create API; lastName is optional in the assertion.
-        request.put(Constants.API_FIRST_NAME, buildFirstName(user));
-        String lastName = StringUtils.trimToEmpty(user.getLastName());
-        if (StringUtils.isNotBlank(lastName)) {
-            request.put(Constants.API_LAST_NAME, lastName);
-        }
-
-        // The assertion carries no channel of its own, so orgId doubles as the channel the learner
-        // service resolves the root org from. This holds only while the assertion's orgId matches
-        // the organisation.channel column - switch to DEFAULT_ORG_NAME_ATTRIBUTE if it turns out
-        // orgName is the channel instead. When absent the learner service falls back to the
-        // custodian org, which is almost never intended for a bank user.
-        String channel = attribute(user, Constants.SAML_ORG_ID_ATTRIBUTE, Constants.DEFAULT_ORG_ID_ATTRIBUTE);
-        if (StringUtils.isNotBlank(channel)) {
-            request.put(Constants.CHANNEL, channel);
-        } else {
-            logger.warn(
-                    "CreateLearnerUserAuthenticator: no orgId attribute on the brokered user, so no"
-                            + " channel can be sent; the learner service will fall back to the"
-                            + " custodian org. email=" + email);
-        }
-
-        List<String> roles = new ArrayList<>();
-        roles.add(Constants.PUBLIC);
-        request.put(Constants.ROLES, roles);
-
-        addProfileDetails(user, request);
-
         Map<String, Object> body = new HashMap<>();
         body.put(Constants.REQUEST, request);
         logger.info("CreateLearnerUserAuthenticator: sending create request for user: " + body.toString());
-        String response = HttpClientUtil.post(createUrl, writeJson(body), buildHeaders());
+        String response = HttpClientUtil.post(
+                (System.getenv(Constants.SUNBIRD_LMS_BASE_URL) + Constants.CREATE_USER_URI),
+                writeJson(body), buildHeaders());
         if (StringUtils.isBlank(response)) {
             return false;
         }
 
         try {
-            JsonNode json = MAPPER.readTree(response);
-            String status = json.path("params").path("status").asText("");
-            String responseCode = json.path("responseCode").asText("");
+            Map<String, Object> json =
+                    MAPPER.readValue(response, new TypeReference<Map<String, Object>>() {});
+            String status = stringValue(asMap(json.get(Constants.PARAMS)).get(Constants.STATUS));
+            String responseCode = stringValue(json.get(Constants.RESPONSE_CODE));
             return Constants.SUCCESS.equalsIgnoreCase(status) || Constants.OK.equalsIgnoreCase(responseCode);
         } catch (Exception ex) {
             logger.warn("CreateLearnerUserAuthenticator: unable to parse create response: " + response, ex);
@@ -249,56 +235,20 @@ public class CreateLearnerUserAuthenticator implements Authenticator {
         return first;
     }
 
-    /**
-     * Attach designation, group and org details from the assertion.
-     *
-     * <p>Sent in both shapes the V5 create routes understand: the self/custom register routes lift
-     * {@code designation} and {@code group} out of a top-level {@code personalDetails} map, while
-     * the admin route copies {@code profileDetails.professionalDetails} through verbatim. Whichever
-     * route is configured reads its own shape and ignores the other.
-     */
-    private void addProfileDetails(UserModel user, Map<String, Object> request) {
-        String designation = attribute(user, Constants.SAML_DESIGNATION_ATTRIBUTE,
-                Constants.DEFAULT_DESIGNATION_ATTRIBUTE);
-        String group = attribute(user, Constants.SAML_GROUP_ATTRIBUTE, Constants.DEFAULT_GROUP_ATTRIBUTE);
-        String orgId = attribute(user, Constants.SAML_ORG_ID_ATTRIBUTE, Constants.DEFAULT_ORG_ID_ATTRIBUTE);
-        String orgName = attribute(user, Constants.SAML_ORG_NAME_ATTRIBUTE, Constants.DEFAULT_ORG_NAME_ATTRIBUTE);
-
-        Map<String, Object> professionalDetail = new LinkedHashMap<>();
-        putIfNotBlank(professionalDetail, Constants.DESIGNATION, designation);
-        putIfNotBlank(professionalDetail, Constants.GROUP, group);
-        putIfNotBlank(professionalDetail, Constants.NAME, orgName);
-        putIfNotBlank(professionalDetail, Constants.ORGID, orgId);
-        if (professionalDetail.isEmpty()) {
-            return;
-        }
-
-        Map<String, Object> personalDetails = new LinkedHashMap<>();
-        putIfNotBlank(personalDetails, Constants.DESIGNATION, designation);
-        putIfNotBlank(personalDetails, Constants.GROUP, group);
-        if (!personalDetails.isEmpty()) {
-            request.put(Constants.PERSONAL_DETAILS, personalDetails);
-        }
-
-        Map<String, Object> profileDetails = new LinkedHashMap<>();
-        profileDetails.put(Constants.PROFESIONAL_DETAILS, List.of(professionalDetail));
-        request.put(Constants.PROFILE_DETAILS, profileDetails);
+    /** Read an env-var-backed config value, falling back to the supplied default. */
+    private String config(String envVar, String defaultValue) {
+        String value = StringUtils.trimToEmpty(System.getenv(envVar));
+        return StringUtils.isNotBlank(value) ? value : StringUtils.trimToEmpty(defaultValue);
     }
 
-    /** Read a Keycloak attribute whose name is overridable by the given env var. */
-    private String attribute(UserModel user, String envVar, String defaultAttribute) {
-        logger.info("CreateLearnerUserAuthenticator: reading attribute for env var: " + envVar);
-        String attributeName = System.getenv(envVar);
-        if (StringUtils.isBlank(attributeName)) {
-            attributeName = defaultAttribute;
-        }
-        return StringUtils.trimToEmpty(user.getFirstAttribute(attributeName));
+    /** Nested object accessor that yields an empty map rather than null for a missing branch. */
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> asMap(Object value) {
+        return value instanceof Map ? (Map<String, Object>) value : Collections.emptyMap();
     }
 
-    private static void putIfNotBlank(Map<String, Object> map, String key, String value) {
-        if (StringUtils.isNotBlank(value)) {
-            map.put(key, value);
-        }
+    private static String stringValue(Object value) {
+        return value == null ? StringUtils.EMPTY : String.valueOf(value);
     }
 
     private static String writeJson(Object body) {
