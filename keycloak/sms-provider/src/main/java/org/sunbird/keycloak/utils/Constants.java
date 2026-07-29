@@ -131,4 +131,34 @@ public class Constants {
 	public static final String PERSONAL_DETAILS = "personalDetails";
 	public static final String PRIMARY_EMAIL = "primaryEmail";
 	public static final String MOBILE = "mobile";
+	public static final String CREATE_USER_URI = "/v5/cb/user/ntpc/create";
+	public static final String SAML_PHONE_ATTRIBUTE = "sunbird_saml_phone_attribute";
+	public static final String SAML_FAIL_ON_CREATE_ERROR = "sunbird_saml_fail_on_create_error";
+	public static final String DEFAULT_PHONE_ATTRIBUTE = "phone";
+	public static final String CUSTODIAN_CHANNEL = "sunbird_custodian_channel";
+	public static final String DEFAULT_CUSTODIAN_CHANNEL = "igot";
+	public static final String PHONE_REGEX = "\\d{10}";
+	public static final String ERROR_MISSING_EMAIL = "Missing email in SAML assertion.";
+	public static final String ERROR_MISSING_PHONE = "Missing phone in SAML assertion.";
+	public static final String ERROR_INVALID_PHONE =
+			"Invalid phone in SAML assertion; a 10-digit mobile number is required.";
+	public static final String ERROR_PHONE_ALREADY_REGISTERED =
+			"This phone is already registered with an existing user.";
+	public static final String LOOKUP_URI = "/private/user/v1/lookup";
+	public static final String SUCCESS = "SUCCESS";
+	public static final String OK = "OK";
+	public static final String PARAMS = "params";
+	public static final String STATUS = "status";
+	public static final String RESPONSE_CODE = "responseCode";
+	public static final String PUBLIC = "PUBLIC";
+	public static final String CONTENT_TYPE = "Content-Type";
+	public static final String APPLICATION_JSON = "application/json";
+	public static final String AUTHORIZATION = "Authorization";
+	public static final String EMAIL_VERIFIED = "emailVerified";
+	public static final String PHONE_VERIFIED = "phoneVerified";
+	public static final String PROFILE_DETAILS = "profileDetails";
+	public static final String ORGID = "orgId";
+	public static final String FIRST_NAME_KEY = "firstName";
+	public static final String LAST_NAME_KEY = "lastName";
+	public static final String CHANNEL = "channel";
 }
