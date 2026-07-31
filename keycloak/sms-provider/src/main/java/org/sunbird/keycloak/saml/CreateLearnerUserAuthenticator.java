@@ -45,6 +45,7 @@ public class CreateLearnerUserAuthenticator implements Authenticator {
 
     @Override
     public void authenticate(AuthenticationFlowContext context) {
+        logger.info("[SAML-SBI-TEST] CreateLearnerUserAuthenticator.authenticate() invoked - entering SAML first-broker-login post-processing.");
         UserModel user = context.getUser();
         if (user == null) {
             user = context.getAuthenticationSession().getAuthenticatedUser();
@@ -53,28 +54,37 @@ public class CreateLearnerUserAuthenticator implements Authenticator {
         if (user == null) {
             logger.warn(
                     "CreateLearnerUserAuthenticator: no authenticated user in context; skipping learner user creation.");
+            logger.info("[SAML-SBI-TEST] No authenticated user found on context or auth session; treating as success and skipping provisioning.");
             context.success();
             return;
         }
 
+        logger.info("[SAML-SBI-TEST] Brokered user resolved from SAML assertion. username=" + user.getUsername()
+                + ", id=" + user.getId());
+
         String email = user.getEmail();
+        logger.info("[SAML-SBI-TEST] user.getEmail() from assertion = " + email);
         if (StringUtils.isBlank(email)) {
             email = user.getFirstAttribute(Constants.SAML_EMAIL);
+            logger.info("[SAML-SBI-TEST] email blank on user model, falling back to samlEmail attribute = " + email);
         }
 
         if (StringUtils.isBlank(email)) {
             logger.error(
                     "CreateLearnerUserAuthenticator: brokered user has no email attribute; cannot create learner user. username="
                             + user.getUsername());
+            logger.info("[SAML-SBI-TEST] Aborting: no email resolvable from SAML assertion for username=" + user.getUsername());
             handleFailure(context, Constants.ERROR_MISSING_EMAIL);
             return;
         }
 
         String phone = extractPhone(user);
+        logger.info("[SAML-SBI-TEST] Extracted/normalized phone from SAML assertion = " + phone);
         if (StringUtils.isBlank(phone)) {
             logger.error(
                     "CreateLearnerUserAuthenticator: brokered user has no phone attribute; cannot create learner user. username="
                             + user.getUsername());
+            logger.info("[SAML-SBI-TEST] Aborting: no phone resolvable from SAML assertion for username=" + user.getUsername());
             handleFailure(context, Constants.ERROR_MISSING_PHONE);
             return;
         }
@@ -83,37 +93,48 @@ public class CreateLearnerUserAuthenticator implements Authenticator {
             logger.error(
                     "CreateLearnerUserAuthenticator: phone from SAML assertion is not a valid 10-digit number; cannot create learner user. username="
                             + user.getUsername());
+            logger.info("[SAML-SBI-TEST] Aborting: phone failed 10-digit validation, phone=" + phone);
             handleFailure(context, Constants.ERROR_INVALID_PHONE);
             return;
         }
 
         try {
-            if (learnerUserExists(Constants.EMAIL, email.toLowerCase())) {
+            boolean emailExists = learnerUserExists(Constants.EMAIL, email.toLowerCase());
+            logger.info("[SAML-SBI-TEST] learnerUserExists(email=" + email + ") = " + emailExists);
+            if (emailExists) {
                 logger.info(
                         "CreateLearnerUserAuthenticator: learner user already exists for email=" + email
                                 + "; skipping create.");
+                logger.info("[SAML-SBI-TEST] Existing learner user found for email; calling context.success() without create.");
                 context.success();
                 return;
             }
 
             // Email is new, so any phone match here belongs to a different account.
-            if (learnerUserExists(Constants.PHONE, phone)) {
+            boolean phoneExists = learnerUserExists(Constants.PHONE, phone);
+            logger.info("[SAML-SBI-TEST] learnerUserExists(phone=" + phone + ") = " + phoneExists);
+            if (phoneExists) {
                 logger.error(
                         "CreateLearnerUserAuthenticator: phone is already registered to another learner user; aborting create for email="
                                 + email);
                 // Always blocking: the learner service rejects duplicate phones, so allowing the
                 // login would strand the user without an account.
+                logger.info("[SAML-SBI-TEST] Aborting: phone already registered to a different account; calling handleDuplicatePhone().");
                 handleDuplicatePhone(context);
                 return;
             }
 
+            logger.info("[SAML-SBI-TEST] No existing learner user for email or phone; calling createLearnerUser().");
             boolean created = createLearnerUser(user, email, phone);
+            logger.info("[SAML-SBI-TEST] createLearnerUser() returned = " + created);
             if (created) {
                 logger.info("CreateLearnerUserAuthenticator: learner user created for email=" + email);
+                logger.info("[SAML-SBI-TEST] Learner user created successfully; calling context.success().");
                 context.success();
             } else {
                 logger.error(
                         "CreateLearnerUserAuthenticator: learner user creation failed for email=" + email);
+                logger.info("[SAML-SBI-TEST] createLearnerUser() returned false; calling handleFailure().");
                 handleFailure(context, "Failed to create learner-service user.");
             }
         } catch (Exception ex) {
@@ -121,6 +142,8 @@ public class CreateLearnerUserAuthenticator implements Authenticator {
                     "CreateLearnerUserAuthenticator: exception while provisioning learner user for email="
                             + email,
                     ex);
+            logger.info("[SAML-SBI-TEST] Exception during provisioning, class=" + ex.getClass().getName()
+                    + ", message=" + ex.getMessage());
             handleFailure(context, "Internal error while creating learner-service user.");
         }
     }
@@ -172,7 +195,9 @@ public class CreateLearnerUserAuthenticator implements Authenticator {
      * @param field {@code email} or {@code phone}
      */
     private boolean learnerUserExists(String field, String value) {
-        return !UserSearchService.getUserByKey(field, value).isEmpty();
+        boolean exists = !UserSearchService.getUserByKey(field, value).isEmpty();
+        logger.info("[SAML-SBI-TEST] learnerUserExists() lookup field=" + field + ", value=" + value + ", exists=" + exists);
+        return exists;
     }
 
     /** Call the V5 create API to provision the learner-service user. */
@@ -208,10 +233,16 @@ public class CreateLearnerUserAuthenticator implements Authenticator {
         Map<String, Object> body = new HashMap<>();
         body.put(Constants.REQUEST, request);
         logger.info("CreateLearnerUserAuthenticator: sending create request for user: " + body.toString());
+        logger.info("[SAML-SBI-TEST] createLearnerUser() POSTing to " + System.getenv(Constants.SUNBIRD_LMS_BASE_URL)
+                + Constants.CREATE_USER_URI + ", body=" + body);
+        String url = System.getenv(Constants.SUNBIRD_LMS_BASE_URL) + Constants.CREATE_USER_URI;
+        logger.info("[SAML-SBI-TEST] createLearnerUser() POSTing to " + url);
         String response = HttpClientUtil.post(
-                (System.getenv(Constants.SUNBIRD_LMS_BASE_URL) + Constants.CREATE_USER_URI),
+                url,
                 writeJson(body), buildHeaders());
+        logger.info("[SAML-SBI-TEST] createLearnerUser() raw response = " + response);
         if (StringUtils.isBlank(response)) {
+            logger.info("[SAML-SBI-TEST] createLearnerUser() response blank; returning false.");
             return false;
         }
 
@@ -220,9 +251,13 @@ public class CreateLearnerUserAuthenticator implements Authenticator {
                     MAPPER.readValue(response, new TypeReference<Map<String, Object>>() {});
             String status = stringValue(asMap(json.get(Constants.PARAMS)).get(Constants.STATUS));
             String responseCode = stringValue(json.get(Constants.RESPONSE_CODE));
-            return Constants.SUCCESS.equalsIgnoreCase(status) || Constants.OK.equalsIgnoreCase(responseCode);
+            boolean success = Constants.SUCCESS.equalsIgnoreCase(status) || Constants.OK.equalsIgnoreCase(responseCode);
+            logger.info("[SAML-SBI-TEST] createLearnerUser() parsed status=" + status + ", responseCode=" + responseCode
+                    + ", success=" + success);
+            return success;
         } catch (Exception ex) {
             logger.warn("CreateLearnerUserAuthenticator: unable to parse create response: " + response, ex);
+            logger.info("[SAML-SBI-TEST] createLearnerUser() failed to parse response, returning false.");
             return false;
         }
     }
@@ -287,6 +322,7 @@ public class CreateLearnerUserAuthenticator implements Authenticator {
      * proceeding would land the user on a portal with no account behind it.
      */
     private void handleDuplicatePhone(AuthenticationFlowContext context) {
+        logger.info("[SAML-SBI-TEST] handleDuplicatePhone() invoked - blocking login with INVALID_USER error page.");
         Response errorPage =
                 context.form()
                         .setError(Constants.ERROR_PHONE_ALREADY_REGISTERED)
@@ -297,6 +333,7 @@ public class CreateLearnerUserAuthenticator implements Authenticator {
     private void handleFailure(AuthenticationFlowContext context, String message) {
         boolean failOnError =
                 Boolean.parseBoolean(System.getenv(Constants.SAML_FAIL_ON_CREATE_ERROR));
+        logger.info("[SAML-SBI-TEST] handleFailure() invoked, message=" + message + ", failOnError=" + failOnError);
         if (failOnError) {
             Response errorPage =
                     context.form().setError(message).createErrorPage(Response.Status.BAD_REQUEST);
@@ -304,6 +341,7 @@ public class CreateLearnerUserAuthenticator implements Authenticator {
         } else {
             logger.warn(
                     "CreateLearnerUserAuthenticator: continuing login despite provisioning issue: " + message);
+            logger.info("[SAML-SBI-TEST] failOnError is false; calling context.success() despite issue.");
             context.success();
         }
     }
