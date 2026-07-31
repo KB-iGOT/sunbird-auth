@@ -235,7 +235,7 @@ public class CreateLearnerUserAuthenticator implements Authenticator {
         logger.info("CreateLearnerUserAuthenticator: sending create request for user: " + body.toString());
         logger.info("[SAML-SBI-TEST] createLearnerUser() POSTing to " + System.getenv(Constants.SUNBIRD_LMS_BASE_URL)
                 + Constants.CREATE_USER_URI + ", body=" + body);
-        String url = System.getenv(Constants.SUNBIRD_LMS_BASE_URL) + Constants.CREATE_USER_URI;
+        String url = System.getenv(Constants.SUNBIRD_USER_SERVICE_BASE_URL) + Constants.CREATE_USER_URI;
         logger.info("[SAML-SBI-TEST] createLearnerUser() POSTing to " + url);
         String response = HttpClientUtil.post(
                 url,
