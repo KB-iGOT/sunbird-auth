@@ -61,6 +61,7 @@ public class UserServiceProvider
     @Override
     public UserModel getUserByUsername(RealmModel realm, String username) {
         logger.info("UserServiceProvider: getUserByUsername called");
+        logger.info("[SAML-SBI-TEST] getUserByUsername() resolving IdP-side user for SAML login, username=" + username);
         List<User> users = userService.getByUsername(username);
         logger.info("UserServiceProvider: getUserByUsername called and user is :" + users);
         if (users != null && users.size() == 1) {
@@ -183,6 +184,8 @@ public class UserServiceProvider
 
     @Override
     public boolean isValid(RealmModel realm, UserModel user, CredentialInput input) {
+        logger.info("[SAML-SBI-TEST] isValid() checking credentials for IdP-side user before issuing SAML assertion, username="
+                + (user != null ? user.getUsername() : "null"));
         if (!supportsCredentialType(input.getType())) {
             return false;
         }
@@ -199,10 +202,14 @@ public class UserServiceProvider
             // local credential store for this federated user via PasswordCredentialProvider (SPI).
             PasswordCredentialProvider passwordProvider = (PasswordCredentialProvider) session
                     .getProvider(CredentialProvider.class, PasswordCredentialProviderFactory.PROVIDER_ID);
-            return passwordProvider.isValid(realm, user, UserCredentialModel.password(passwordToValidate));
+            boolean valid = passwordProvider.isValid(realm, user, UserCredentialModel.password(passwordToValidate));
+            logger.info("[SAML-SBI-TEST] isValid() password check result=" + valid + " for username="
+                    + (user != null ? user.getUsername() : "null"));
+            return valid;
 
         } catch (Exception e) {
             logger.error("isValid() exception: " + e.getClass().getName() + " - " + e.getMessage(), e);
+            logger.info("[SAML-SBI-TEST] isValid() threw exception: " + e.getClass().getName() + " - " + e.getMessage());
             return false;
         }
     }

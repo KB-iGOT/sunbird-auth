@@ -78,6 +78,7 @@ public class HttpClientUtil {
 
       response = httpclient.execute(httpPost);
       int status = response.getStatusLine().getStatusCode();
+      logger.info("HttpClientUtil.post: requestURL=" + requestURL + ", responseStatus=" + status);
       if (status >= 200 && status < 300) {
         HttpEntity httpEntity = response.getEntity();
         byte[] bytes = EntityUtils.toByteArray(httpEntity);
@@ -86,10 +87,21 @@ public class HttpClientUtil {
           "Response from post call : " + sl.getStatusCode() + " - " + sl.getReasonPhrase());
         return new String(bytes);
       } else {
+        String errorBody = "";
+        try {
+          HttpEntity errorEntity = response.getEntity();
+          if (errorEntity != null) {
+            errorBody = new String(EntityUtils.toByteArray(errorEntity));
+          }
+        } catch (Exception readEx) {
+          logger.error("HttpClientUtil.post: failed to read error response body for requestURL=" + requestURL, readEx);
+        }
+        logger.error("HttpClientUtil.post: non-success response for requestURL=" + requestURL
+          + ", status=" + status + ", body=" + errorBody);
         return "";
       }
     } catch (Exception ex) {
-      logger.error("Exception occurred while calling Post method", ex);
+      logger.error("Exception occurred while calling Post method, requestURL=" + requestURL, ex);
       return "";
     } finally {
       if (null != response) {
