@@ -10,6 +10,7 @@ import org.jboss.logging.Logger;
 import org.keycloak.component.ComponentModel;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
+import org.keycloak.models.RoleModel;
 import org.keycloak.storage.StorageId;
 import org.keycloak.storage.adapter.AbstractUserAdapterFederatedStorage;
 import org.sunbird.keycloak.utils.Constants;
@@ -103,7 +104,7 @@ public class UserAdapter extends AbstractUserAdapterFederatedStorage {
             case Constants.ID:
                 return wrap(user.getId());
             case Constants.SAML_EMAIL:
-                return wrap(user.getId() + "@karmayogi.com");
+                return wrap(user.getId() + Constants.KARMAYOGI_EMAIL);
             case Constants.PHONE:
                 return wrap(user.getPhone());
             case Constants.COUNTRY_CODE:
@@ -148,7 +149,7 @@ public class UserAdapter extends AbstractUserAdapterFederatedStorage {
         attributes.put(Constants.DESIGNATION, wrap(user.getDesignation()));
         attributes.put(Constants.GROUP, wrap(user.getGroup()));
         attributes.put(Constants.ROLES, user.getRoles() != null ? user.getRoles() : new ArrayList<>());
-        attributes.put(Constants.SAML_EMAIL, wrap(user.getId() + "@karmayogi.com"));
+        attributes.put(Constants.SAML_EMAIL, wrap(user.getId() + Constants.KARMAYOGI_EMAIL));
         logger.info("UserAdapter:getAttributes method ended " );
         return attributes;
     }
@@ -157,6 +158,21 @@ public class UserAdapter extends AbstractUserAdapterFederatedStorage {
     public String getId() {
         logger.info("[KC24_DEBUG] getId() called, returning: " + keycloakId);
         return keycloakId;
+    }
+
+    /**
+     * Override to include realm default roles (e.g. offline_access) for federated users.
+     * AbstractUserAdapterFederatedStorage does NOT include realm default roles by itself,
+     * unlike AbstractUserAdapter. This ensures KC24's offline token role check passes.
+     */
+    @Override
+    public Stream<RoleModel> getRoleMappingsStream() {
+        Stream<RoleModel> federatedRoles = super.getRoleMappingsStream();
+        RoleModel defaultRole = realm.getDefaultRole();
+        if (defaultRole != null) {
+            return Stream.concat(federatedRoles, Stream.of(defaultRole));
+        }
+        return federatedRoles;
     }
 
     private List<String> wrap(String value) {
