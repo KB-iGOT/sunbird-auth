@@ -527,7 +527,7 @@ public class PasswordAndOtpAuthenticator extends AbstractUsernameFormAuthenticat
         HttpResponse response = null;
         try {
             response = HttpClient.post(request,
-                    (System.getenv(Constants.SUNBIRD_LMS_BASE_URL) + Constants.SEND_NOTIFICATION_URI),
+                    (System.getenv(Constants.SUNBIRD_USER_SERVICE_BASE_URL) + Constants.SEND_NOTIFICATION_URI),
                     System.getenv(Constants.SUNBIRD_LMS_AUTHORIZATION));
             if (response.getStatusLine() != null) {
                 int statusCode = response.getStatusLine().getStatusCode();
