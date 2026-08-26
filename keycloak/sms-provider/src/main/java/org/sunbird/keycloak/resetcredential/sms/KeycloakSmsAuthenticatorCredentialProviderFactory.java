@@ -4,6 +4,7 @@ import org.jboss.logging.Logger;
 import org.keycloak.credential.CredentialProvider;
 import org.keycloak.credential.CredentialProviderFactory;
 import org.keycloak.models.KeycloakSession;
+import org.keycloak.credential.UserCredentialManager;
 
 /**
  * Created by nickpack on 09/08/2017.

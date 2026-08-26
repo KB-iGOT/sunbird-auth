@@ -1,22 +1,7 @@
-/*
- * Copyright 2016 Red Hat, Inc. and/or its affiliates and other contributors as indicated by
- * the @author tags.
- *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
- * in compliance with the License. You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software distributed under the License
- * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
- * or implied. See the License for the specific language governing permissions and limitations under
- * the License.
- */
-
 package org.sunbird.keycloak.login.phone;
 
-import javax.ws.rs.core.MultivaluedMap;
-import javax.ws.rs.core.Response;
+import jakarta.ws.rs.core.MultivaluedMap;
+import jakarta.ws.rs.core.Response;
 import org.jboss.logging.Logger;
 import org.keycloak.authentication.AuthenticationFlowContext;
 import org.keycloak.authentication.AuthenticationFlowError;
@@ -31,6 +16,16 @@ import org.keycloak.services.messages.Messages;
 import org.sunbird.keycloak.resetcredential.sms.KeycloakSmsAuthenticatorConstants;
 import org.sunbird.keycloak.utils.Constants;
 import org.sunbird.keycloak.utils.SunbirdModelUtils;
+import org.keycloak.credential.UserCredentialManager;
+import org.keycloak.credential.CredentialInput;
+import org.keycloak.representations.idm.CredentialRepresentation;
+import org.keycloak.models.UserCredentialModel;
+import java.util.LinkedList;
+import java.util.List;
+import javax.crypto.Cipher;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
+import java.util.Base64;
 
 public abstract class AbstractPhoneFormAuthenticator extends AbstractUsernameFormAuthenticator {
 
@@ -44,7 +39,7 @@ public abstract class AbstractPhoneFormAuthenticator extends AbstractUsernameFor
 
     if (username == null) {
       context.getEvent().error(Errors.USER_NOT_FOUND);
-      Response challengeResponse = invalidUser(context);
+      Response challengeResponse = challenge(context, Messages.INVALID_USER);
       context.failureChallenge(AuthenticationFlowError.INVALID_USER, challengeResponse);
       return false;
     }
@@ -86,7 +81,7 @@ public abstract class AbstractPhoneFormAuthenticator extends AbstractUsernameFor
       return false;
     }
 
-    if (!validatePassword(context, user, inputData)) {
+    if (!validatePassword(context, user, inputData, false)) {
       return false;
     }
 
@@ -105,5 +100,61 @@ public abstract class AbstractPhoneFormAuthenticator extends AbstractUsernameFor
     context.setUser(user);
     return true;
   }
+  
+  protected Response temporarilyDisabledUser(AuthenticationFlowContext context) {
+      return context.form()
+              .setError(Messages.ACCOUNT_TEMPORARILY_DISABLED).createForm("login.ftl");
+  }
+
+    private boolean invalidUser(AuthenticationFlowContext context, UserModel user) {
+        if (user == null) {
+            context.getEvent().error(Errors.USER_NOT_FOUND);
+            return true;
+        }
+        if (!user.isEnabled()) {
+            context.getEvent().error(Errors.USER_DISABLED);
+            return true;
+        }
+        if (context.getRealm().isBruteForceProtected()) {
+            if (context.getProtector().isTemporarilyDisabled(context.getSession(), context.getRealm(), user)) {
+                context.getEvent().error(Errors.USER_TEMPORARILY_DISABLED);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public boolean validatePassword(AuthenticationFlowContext context, UserModel user,
+                                    MultivaluedMap<String, String> inputData) {
+        String encryptedPassword = inputData.getFirst(CredentialRepresentation.PASSWORD);
+        String secretKey = context.getAuthenticationSession().getAuthNote(Constants.SECRET_KEY);
+        String iv = inputData.getFirst(Constants.IV);
+        // Decrypt the password
+        String decryptedPassword = decryptPassword(encryptedPassword, secretKey, iv);
+
+        List<CredentialInput> credentials = new LinkedList<>();
+        credentials.add(UserCredentialModel.password(decryptedPassword));
+
+        return decryptedPassword != null && !decryptedPassword.isEmpty()
+                && new UserCredentialManager(context.getSession(), context.getRealm(), user).isValid(credentials);
+    }
+
+    // Add the decryptPassword method
+    private String decryptPassword(String encryptedPassword, String secretKey, String iv) {
+        try {
+            byte[] decodedBytes = Base64.getDecoder().decode(encryptedPassword);
+            byte[] ivBytes = Base64.getDecoder().decode(iv);
+            IvParameterSpec ivSpec = new IvParameterSpec(ivBytes);
+
+            Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+            SecretKeySpec keySpec = new SecretKeySpec(secretKey.getBytes("UTF-8"), "AES");
+            cipher.init(Cipher.DECRYPT_MODE, keySpec, ivSpec);
+
+            byte[] decryptedBytes = cipher.doFinal(decodedBytes);
+            return new String(decryptedBytes, "UTF-8");
+        } catch (Exception e) {
+            throw new RuntimeException("Error while decrypting password", e);
+        }
+    }
 
 }

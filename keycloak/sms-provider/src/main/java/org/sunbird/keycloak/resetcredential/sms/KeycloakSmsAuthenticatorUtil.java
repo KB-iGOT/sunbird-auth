@@ -1,6 +1,11 @@
 package org.sunbird.keycloak.resetcredential.sms;
 
-import com.amazonaws.util.StringUtils;
+import java.io.File;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
+
 import org.jboss.logging.Logger;
 import org.keycloak.models.AuthenticatorConfigModel;
 import org.keycloak.models.UserModel;
@@ -8,10 +13,7 @@ import org.sunbird.sms.msg91.Msg91SmsProviderFactory;
 import org.sunbird.sms.provider.ISmsProvider;
 import org.sunbird.utils.JsonUtil;
 
-import java.io.File;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
+import com.amazonaws.util.StringUtils;
 
 /**
  * Created by joris on 18/11/2016.
@@ -22,7 +24,7 @@ public class KeycloakSmsAuthenticatorUtil {
 
     public static String getAttributeValue(UserModel user, String attributeName) {
         String result = null;
-        List<String> values = user.getAttribute(attributeName);
+        List<String> values = user.getAttributeStream(attributeName).collect(Collectors.toList());
         if (values != null && values.size() > 0) {
             result = values.get(0);
         }
@@ -38,7 +40,7 @@ public class KeycloakSmsAuthenticatorUtil {
 
         String value = defaultValue;
 
-        if (config.getConfig() != null) {
+        if (config != null && config.getConfig() != null) {
             // Get value
             value = config.getConfig().get(configName);
         }
@@ -54,7 +56,7 @@ public class KeycloakSmsAuthenticatorUtil {
 
         Long value = defaultValue;
 
-        if (config.getConfig() != null) {
+        if (config != null && config.getConfig() != null) {
             // Get value
             Object obj = config.getConfig().get(configName);
             try {
@@ -80,7 +82,7 @@ public class KeycloakSmsAuthenticatorUtil {
         if (mobileNumber.startsWith(KeycloakSmsAuthenticatorConstants.DEFAULT_COUNTRY_CODE)) {
             mobileNumber = KeycloakSmsAuthenticatorConstants.COUNTRY_CODE + mobileNumber.substring(1);
         } else if (mobileNumber.startsWith(KeycloakSmsAuthenticatorConstants.COUNTRY_CODE)) {
-            mobileNumber = mobileNumber;
+            //nothing to do
         } else {
             mobileNumber = KeycloakSmsAuthenticatorConstants.COUNTRY_CODE + mobileNumber;
         }
@@ -92,13 +94,10 @@ public class KeycloakSmsAuthenticatorUtil {
         String smsText = createMessage(code, mobileNumber, config);
         logger.debug("KeycloakSmsAuthenticatorUtil@sendSmsCode : smsText - " + smsText);
 
-        Boolean msg91SmsProviderStatus = send(mobileNumber, smsText);
-        if (msg91SmsProviderStatus != null) return msg91SmsProviderStatus;
-
-        return false;
+        return send(mobileNumber, smsText);
     }
 
-    private static Boolean send(String mobileNumber, String code) {
+    public static boolean send(String mobileNumber, String code) {
         String filePath = new File(KeycloakSmsAuthenticatorConstants.MSG91_SMS_PROVIDER_CONFIGURATIONS_PATH).getAbsolutePath();
         logger.debug("KeycloakSmsAuthenticatorUtil@sendSmsCode : filePath - " + filePath);
 
@@ -114,17 +113,17 @@ public class KeycloakSmsAuthenticatorUtil {
                 return msg91SmsProvider.send(mobileNumber, code);
             }
         }
-        return null;
+        return false;
     }
 
-    static String getSmsCode(long nrOfDigits) {
+    public static String getSmsCode(long nrOfDigits) {
         if (nrOfDigits < 1) {
             throw new RuntimeException("Number of digits must be bigger than 0");
         }
 
-        double maxValue = Math.pow(10.0, nrOfDigits); // 10 ^ nrOfDigits;
-        Random r = new Random();
-        long code = (long) (r.nextFloat() * maxValue);
+        long minValue = (long) Math.pow(10.0, (nrOfDigits - 1));
+        long maxValue = (long) Math.pow(10.0, nrOfDigits); // 10 ^ nrOfDigits;
+        long code = ThreadLocalRandom.current().nextLong(minValue, maxValue);
         return Long.toString(code);
     }
 

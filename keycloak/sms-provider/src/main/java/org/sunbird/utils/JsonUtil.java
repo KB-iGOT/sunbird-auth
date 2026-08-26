@@ -10,29 +10,39 @@ import java.util.Map;
 
 public class JsonUtil {
 
-    public static Map<String, String> readFromJson(String jsonFile) {
-        ObjectMapper mapper = new ObjectMapper();
+	public static Map<String, String> readFromJson(String jsonFile) {
+		ObjectMapper mapper = new ObjectMapper();
 
-        // read JSON from a file
-        Map<String, String> map = null;
+		// read JSON from a file
+		Map<String, String> map = null;
 
-        try {
-            map = mapper.readValue(
-                    new File(jsonFile),
-                    new TypeReference<Map<String, String>>() {
-                    });
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+		try {
+			map = mapper.readValue(new File(jsonFile), new TypeReference<Map<String, String>>() {
+			});
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 
-        return map;
-    }
+		return map;
+	}
 
+	public static Map<String, Object> readObjectFromJson(String jsonFile) {
+		ObjectMapper mapper = new ObjectMapper();
+		// read JSON from a file
+		Map<String, Object> map = null;
+		try {
+			map = mapper.readValue(new File(jsonFile), new TypeReference<Map<String, Object>>() {
+			});
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return map;
+	}
 
-    public static String toJson(Object object) {
-        Gson gsonObj = new Gson();
+	public static String toJson(Object object) {
+		Gson gsonObj = new Gson();
 
-        return gsonObj.toJson(object);
-    }
+		return gsonObj.toJson(object);
+	}
 
 }

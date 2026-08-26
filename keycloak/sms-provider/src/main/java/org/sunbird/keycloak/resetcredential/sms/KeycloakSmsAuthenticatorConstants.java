@@ -10,13 +10,20 @@ public class KeycloakSmsAuthenticatorConstants {
     public static final String COUNTRY_CODE = "+91";
     public static final String DEFAULT_COUNTRY_CODE = "0";
 
+    public static final String CONF_PRP_MAX_USER_SESSIONS = "max-user-sessions";
+    public static final String CONF_LIMIT_BEHAVIOR = "max-user-sessions-behaviour";
     public static final String CONF_PRP_SMS_CODE_TTL = "sms-auth.code.ttl";
     public static final String CONF_PRP_SMS_CODE_LENGTH = "sms-auth.code.length";
     public static final String CONF_PRP_SMS_TEXT = "sms-auth.msg.text";
-
+    public static final String CONF_PRP_SMS_PROVIDER = "sms-auth.msg.provider";
+    
     // User credentials (used to persist the sent sms code + expiration time cluster wide)
     public static final String USR_CRED_MDL_SMS_CODE = "sms-auth.code";
     public static final String USR_CRED_MDL_SMS_EXP_TIME = "sms-auth.exp-time";
 
     public static final String MSG91_SMS_PROVIDER_CONFIGURATIONS_PATH = "sms-provider/Msg91Creds.json";
+    public static final String NIC_SMS_PROVIDER_CONFIGURATIONS_PATH = "sms-provider/NicSmsCreds.json";
+    public static final String AMNEX_SMS_PROVIDER_CONFIGURATIONS_PATH = "sms-provider/AmnexSmsCreds.json";
+    public static final String NETCORE_SMS_PROVIDER_CONFIGURATIONS_PATH = "sms-provider/NetCoreSmsCreds.json";
+    public static final String SINCH_SMS_PROVIDER_CONFIGURATIONS_PATH = "sms-provider/SinchSmsCreds.json";
 }

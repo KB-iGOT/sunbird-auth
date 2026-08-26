@@ -4,7 +4,7 @@ import java.util.Map;
 
 public interface ISmsProvider {
 
-    void configure(Map<String, String> configurations);
+    void configure(Map<String, String> configurations) throws Exception;
 
     boolean send(String phoneNumber, String smsText);
 }
