@@ -1,1 +1,2 @@
 org.sunbird.keycloak.utils.CustomProtocolMapper
+org.sunbird.keycloak.lti.LtiProtocolMapper
